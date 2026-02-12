@@ -1,13 +1,27 @@
 #include "device/device.hpp"
 #include "state/state-machine.hpp"
+#include "device/drivers/logger.hpp"
+#include <utility>
+
+const char* TAG = "Device";
 
 void Device::loadAppConfig(AppConfig config, StateId launchAppId) {
-    this->appConfig = config;
+    this->appConfig = std::move(config);
     this->currentAppId = launchAppId;
-    this->appConfig[currentAppId]->onStateMounted(this);
+    if(appConfig.find(currentAppId) == appConfig.end()) {
+        LOG_E(TAG, "App %d not found", currentAppId.id);
+        return;
+    }
+
+    appConfig[currentAppId]->onStateMounted(this);
 }
 
 void Device::setActiveApp(StateId appId) {
+    if(appConfig.find(appId) == appConfig.end()) {
+        LOG_E(TAG, "App %d not found", appId.id);
+        return;
+    }
+
     previousAppId = currentAppId;
     appConfig[currentAppId]->onStatePaused(this);
     this->currentAppId = appId;
@@ -29,7 +43,8 @@ StateMachine* Device::getApp(StateId appId) {
 
 void Device::loop() {
     driverManager.execDrivers();
-    if(!appConfig.empty()) {
-        appConfig[currentAppId]->onStateLoop(this);
+    auto app = appConfig.find(currentAppId);
+    if(app != appConfig.end()) {
+        app->second->onStateLoop(this);
     }
 }
