@@ -45,7 +45,8 @@ enum QuickdrawStateId {
     COLOR_PROFILE_PICKER = 24,
     FDN_REENCOUNTER = 25,
     KONAMI_PUZZLE = 26,
-    CONNECTION_LOST = 27
+    CONNECTION_LOST = 27,
+    BOON_AWARDED = 28
 };
 
 class PlayerRegistration : public State {
@@ -373,6 +374,7 @@ public:
     void onStateDismounted(Device* PDN) override;
 
     bool transitionToColorPrompt();
+    bool transitionToBoonAwarded();
     bool transitionToIdle();
 
 private:
@@ -383,6 +385,7 @@ private:
     static constexpr int DISPLAY_DURATION_MS = 3000;
     bool transitionToIdleState = false;
     bool transitionToColorPromptState = false;
+    bool transitionToBoonAwardedState = false;
 };
 
 /*
@@ -824,4 +827,31 @@ private:
     static constexpr int BLINK_COUNT = 3;
     bool transitionToIdleState = false;
     int blinkCount = 0;
+};
+
+/*
+ * BoonAwarded — Celebration state when player beats hard mode.
+ * Displays "BOON UNLOCKED!" message with game palette name.
+ * Previews the unlocked color palette on all LEDs (cycling animation).
+ * Triggers haptic celebration pattern.
+ * After 5 seconds, transitions to ColorProfilePrompt for equipping.
+ */
+class BoonAwarded : public State {
+public:
+    explicit BoonAwarded(Player* player, ProgressManager* progressManager);
+    ~BoonAwarded();
+
+    void onStateMounted(Device* PDN) override;
+    void onStateLoop(Device* PDN) override;
+    void onStateDismounted(Device* PDN) override;
+
+    bool transitionToColorPrompt();
+
+private:
+    Player* player;
+    ProgressManager* progressManager;
+    SimpleTimer celebrationTimer;
+    static constexpr int CELEBRATION_DURATION_MS = 5000;
+    bool transitionToColorPromptState = false;
+    GameType unlockedGameType;
 };
