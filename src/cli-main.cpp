@@ -42,6 +42,17 @@ std::vector<std::string> g_npcGames;  // NPC games to spawn (--npc flag)
 std::string g_launchGame;  // Game to launch directly (--game flag)
 bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable flag)
 
+// Debug cycling state (defined in cli-globals.cpp)
+extern bool g_panelCycling;
+extern int g_panelCycleInterval;
+extern std::chrono::steady_clock::time_point g_panelCycleLastSwitch;
+
+extern bool g_stateCycling;
+extern int g_stateCycleDevice;
+extern int g_stateCycleInterval;
+extern int g_stateCycleStep;
+extern std::chrono::steady_clock::time_point g_stateCycleLastSwitch;
+
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
     g_running = false;
@@ -430,6 +441,46 @@ int main(int argc, char** argv) {
             cli::SerialCableBroker::getInstance().transferData();
             for (auto& device : devices) {
                 device.pdn->loop();
+            }
+
+            // Handle panel cycling
+            if (g_panelCycling) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - g_panelCycleLastSwitch).count();
+
+                if (elapsed >= g_panelCycleInterval) {
+                    g_selectedDevice = (g_selectedDevice + 1) % devices.size();
+                    g_panelCycleLastSwitch = now;
+                    g_commandResult = "Auto-cycled to device " + devices[g_selectedDevice].deviceId;
+                }
+            }
+
+            // Handle state cycling
+            if (g_stateCycling && g_stateCycleDevice >= 0 &&
+                g_stateCycleDevice < static_cast<int>(devices.size())) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - g_stateCycleLastSwitch).count();
+
+                if (elapsed >= g_stateCycleInterval) {
+                    auto& dev = devices[g_stateCycleDevice];
+
+                    // Cycle through states: Idle (0) -> FdnDetected (7) -> MiniGame (varies) -> FdnComplete (8) -> back to Idle
+                    // For Quickdraw game, the state IDs are:
+                    // 0 = Idle, 7 = FdnDetected, 8 = FdnComplete
+                    // We'll use a simpler approach: just toggle between a few key states
+
+                    const int stateSequence[] = {0, 7, 8, 0};  // Idle -> FdnDetected -> FdnComplete -> Idle
+                    int nextStateId = stateSequence[g_stateCycleStep % 4];
+
+                    dev.game->skipToState(dev.pdn, nextStateId);
+                    g_stateCycleStep++;
+                    g_stateCycleLastSwitch = now;
+
+                    g_commandResult = "Auto-cycled device " + std::to_string(g_stateCycleDevice) +
+                                     " to state " + cli::getStateName(nextStateId, dev.deviceType);
+                }
             }
 
             renderer.renderUI(devices, g_commandResult, g_commandBuffer, g_selectedDevice);
