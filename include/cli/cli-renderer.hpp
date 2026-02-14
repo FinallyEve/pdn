@@ -34,6 +34,24 @@ public:
     bool isCaptionsEnabled() const { return captionsEnabled_; }
 
     /**
+     * Force a complete redraw on the next render cycle.
+     * Clears the frame cache and invalidates cached terminal dimensions.
+     * Called when the terminal is resized (SIGWINCH).
+     */
+    void forceRedraw() {
+        previousFrame_.clear();
+        cachedTermHeight_ = -1;
+    }
+
+    /**
+     * Check if the terminal is too small for full display.
+     * Returns true when terminal height < 40 rows (compact mode threshold).
+     */
+    bool shouldUseCompactMode() const {
+        return getTerminalHeight() < 40;
+    }
+
+    /**
      * Render the full UI for all devices, command result, and prompt.
      */
     void renderUI(std::vector<DeviceInstance>& devices,
@@ -101,6 +119,7 @@ private:
     bool captionsEnabled_ = true;
     std::vector<std::string> previousFrame_;
     std::vector<std::string> currentFrame_;
+    mutable int cachedTermHeight_ = -1;  // Cached terminal height (-1 = invalid)
     
     /**
      * Add a line to the current frame buffer.
@@ -113,13 +132,23 @@ private:
      * Get terminal height to prevent cursor positioning past the screen edge.
      * Writing past the terminal height causes scrolling that corrupts
      * all subsequent absolute cursor positions.
+     *
+     * Caches the result to avoid repeated ioctl calls. Cache is invalidated
+     * by forceRedraw() when terminal is resized.
      */
-    static int getTerminalHeight() {
+    int getTerminalHeight() const {
+        if (cachedTermHeight_ > 0) {
+            return cachedTermHeight_;
+        }
+
         struct winsize ws;
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
-            return static_cast<int>(ws.ws_row);
+            cachedTermHeight_ = static_cast<int>(ws.ws_row);
+            return cachedTermHeight_;
         }
-        return 50;
+
+        cachedTermHeight_ = 50;
+        return cachedTermHeight_;
     }
 
     /**
