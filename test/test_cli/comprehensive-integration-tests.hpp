@@ -146,17 +146,17 @@ void signalEchoEasyWinUnlocksButton(ComprehensiveIntegrationTestSuite* suite) {
     se->getConfig().numSequences = 1;
     se->getConfig().sequenceLength = 2;
     se->getConfig().allowedMistakes = 3;
-    se->getSession().currentSequence = {true, false};
-    se->getSession().currentRound = 0;
-    se->getSession().inputIndex = 0;
 
-    // Skip to intro
+    // Advance past intro (2s)
     suite->tickWithTime(25, 100);
 
-    // Skip show sequence
+    // Now in Show state - configure session
+    se->getSession().currentSequence = {true, false};
+
+    // Advance past show sequence
     suite->tickWithTime(20, 100);
 
-    // Enter correct inputs
+    // Now in PlayerInput - enter correct inputs
     suite->player_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(1);
     suite->player_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
@@ -196,17 +196,17 @@ void signalEchoHardWinUnlocksColorProfile(ComprehensiveIntegrationTestSuite* sui
     se->getConfig().numSequences = 1;
     se->getConfig().sequenceLength = 8;
     se->getConfig().allowedMistakes = 1;
-    se->getSession().currentSequence = {true, false, true, false, true, false, true, false};
-    se->getSession().currentRound = 0;
-    se->getSession().inputIndex = 0;
 
-    // Skip intro
+    // Advance past intro
     suite->tickWithTime(25, 100);
 
-    // Skip show
+    // Now in Show - configure session
+    se->getSession().currentSequence = {true, false, true, false, true, false, true, false};
+
+    // Advance past show
     suite->tickWithTime(20, 100);
 
-    // Enter all 8 correct inputs
+    // Now in PlayerInput - enter all 8 correct inputs
     for (int i = 0; i < 8; i++) {
         bool expected = se->getSession().currentSequence[i];
         if (expected) {
