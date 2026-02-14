@@ -1,0 +1,102 @@
+# Full Progression Demo (~5 minutes)
+# Demonstrates: Collecting all 7 Konami buttons through minigame victories
+
+# Note: This demo shows the progression system. Button sequences are simplified
+# and may not actually win the games - adjust timings as needed for your system.
+
+# Start with clean Konami progress
+konami 0 0
+wait 1
+
+# === Game 1: Ghost Runner → START button (bit 6) ===
+add npc ghost-runner
+wait 1
+cable 0 2
+wait 10
+b 0
+wait 6
+cable -d 0 2
+wait 1
+
+# === Game 2: Spike Vector → DOWN button (bit 1) ===
+add npc spike-vector
+wait 1
+cable 0 3
+wait 10
+b 0
+wait 1
+b 0
+wait 1
+b 0
+wait 6
+cable -d 0 3
+wait 1
+
+# === Game 3: Firewall Decrypt → LEFT button (bit 2) ===
+add npc firewall-decrypt
+wait 1
+cable 0 4
+wait 10
+b 0
+wait 1
+b2 0
+wait 6
+cable -d 0 4
+wait 1
+
+# === Game 4: Cipher Path → RIGHT button (bit 3) ===
+add npc cipher-path
+wait 1
+cable 0 5
+wait 10
+b 0
+wait 1
+b2 0
+wait 6
+cable -d 0 5
+wait 1
+
+# === Game 5: Exploit Sequencer → B button (bit 4) ===
+add npc exploit-sequencer
+wait 1
+cable 0 6
+wait 10
+b 0
+wait 1
+b 0
+wait 6
+cable -d 0 6
+wait 1
+
+# === Game 6: Breach Defense → A button (bit 5) ===
+add npc breach-defense
+wait 1
+cable 0 7
+wait 10
+b 0
+wait 1
+b 0
+wait 6
+cable -d 0 7
+wait 1
+
+# === Game 7: Signal Echo → UP button (bit 0) ===
+add npc signal-echo
+wait 1
+cable 0 8
+wait 10
+b 0
+wait 1
+b2 0
+wait 6
+cable -d 0 8
+wait 1
+
+# Show final Konami progress (should be 0x7F = all 7 buttons unlocked)
+select 0
+konami
+wait 1
+
+# If all buttons unlocked, Konami Puzzle becomes available
+# In real gameplay, player enters: UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A START
+state

@@ -1,0 +1,92 @@
+# All Games Showcase (~3 minutes)
+# Demonstrates: Quick look at each of the 7 minigames
+
+# Note: This demo shows NPC creation and connection for each game.
+# Actual gameplay is simplified - real games require specific input patterns.
+
+# === Game 1: Signal Echo (Pattern Memory) ===
+add npc signal-echo
+wait 1
+cable 0 2
+wait 5
+b 0
+wait 1
+b2 0
+wait 4
+cable -d 0 2
+wait 1
+
+# === Game 2: Ghost Runner (Timing) ===
+add npc ghost-runner
+wait 1
+cable 0 3
+wait 8
+b 0
+wait 5
+cable -d 0 3
+wait 1
+
+# === Game 3: Spike Vector (Rhythm) ===
+add npc spike-vector
+wait 1
+cable 0 4
+wait 8
+b 0
+wait 1
+b 0
+wait 1
+b 0
+wait 5
+cable -d 0 4
+wait 1
+
+# === Game 4: Firewall Decrypt (Pattern Matching) ===
+add npc firewall-decrypt
+wait 1
+cable 0 5
+wait 8
+b 0
+wait 1
+b2 0
+wait 5
+cable -d 0 5
+wait 1
+
+# === Game 5: Cipher Path (Navigation) ===
+add npc cipher-path
+wait 1
+cable 0 6
+wait 8
+b 0
+wait 1
+b2 0
+wait 5
+cable -d 0 6
+wait 1
+
+# === Game 6: Exploit Sequencer (Sequence Memory) ===
+add npc exploit-sequencer
+wait 1
+cable 0 7
+wait 8
+b 0
+wait 1
+b 0
+wait 5
+cable -d 0 7
+wait 1
+
+# === Game 7: Breach Defense (Defense Timing) ===
+add npc breach-defense
+wait 1
+cable 0 8
+wait 8
+b 0
+wait 1
+b 0
+wait 5
+cable -d 0 8
+wait 1
+
+# Show final state of all devices
+state

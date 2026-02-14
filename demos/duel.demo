@@ -1,0 +1,25 @@
+# Quickdraw Duel Demo (~20 seconds)
+# Demonstrates: Two players face off in a quickdraw duel
+
+# Wait for devices to initialize (device 0=Hunter, device 1=Bounty)
+wait 2
+
+# Trigger duel: send DUEL_REQUEST packet from device 0 to device 1
+# Packet type 1 = DUEL_REQUEST
+peer 0 1 1
+wait 2
+
+# Both players accept duel by pressing button
+b 0
+b 1
+wait 2
+
+# Wait for countdown (3 seconds)
+wait 4
+
+# Device 0 draws first and wins
+b 0
+wait 3
+
+# Show final states
+state
