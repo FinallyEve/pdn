@@ -47,19 +47,23 @@ public:
             std::string selectorBar = "Devices: ";
             for (size_t i = 0; i < devices.size(); i++) {
                 if (i > 0) selectorBar += "  ";
-                
+
+                // Determine device label (NPC for FDN, H/B for players)
+                const char* label = (devices[i].deviceType == DeviceType::FDN) ? "NPC" :
+                                    (devices[i].isHunter ? "H" : "B");
+
                 if (static_cast<int>(i) == selectedDeviceIndex) {
                     // Selected device - highlighted
                     selectorBar += format("\033[1;7;33m[%d] %s %s\033[0m",
                                           static_cast<int>(i),
                                           devices[i].deviceId.c_str(),
-                                          devices[i].isHunter ? "H" : "B");
+                                          label);
                 } else {
                     // Unselected device - dim
                     selectorBar += format("\033[90m[%d] %s %s\033[0m",
                                           static_cast<int>(i),
                                           devices[i].deviceId.c_str(),
-                                          devices[i].isHunter ? "H" : "B");
+                                          label);
                 }
             }
             selectorBar += "   \033[90m(LEFT/RIGHT to switch)\033[0m";
