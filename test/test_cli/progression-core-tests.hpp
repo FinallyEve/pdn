@@ -481,13 +481,14 @@ public:
     std::vector<DeviceInstance> devices_;
     Renderer renderer_;
     CommandProcessor processor_;
+    DebugCyclingState cyclingState_;
 };
 
 // Test: konami command shows current progress
 void konamiCommandShowsProgress(KonamiCommandTestSuite* suite) {
     suite->devices_[0].player->setKonamiProgress(0x03);  // UP + DOWN
     int selected = 0;
-    auto result = suite->processor_.execute("konami", suite->devices_, selected, suite->renderer_);
+    auto result = suite->processor_.execute("konami", suite->devices_, selected, suite->renderer_, suite->cyclingState_);
     ASSERT_TRUE(result.message.find("0x03") != std::string::npos);
     ASSERT_TRUE(result.message.find("2/7") != std::string::npos);
 }
@@ -495,7 +496,7 @@ void konamiCommandShowsProgress(KonamiCommandTestSuite* suite) {
 // Test: konami command sets progress
 void konamiCommandSetsProgress(KonamiCommandTestSuite* suite) {
     int selected = 0;
-    auto result = suite->processor_.execute("konami 127", suite->devices_, selected, suite->renderer_);
+    auto result = suite->processor_.execute("konami 127", suite->devices_, selected, suite->renderer_, suite->cyclingState_);
     ASSERT_EQ(suite->devices_[0].player->getKonamiProgress(), 127);
     ASSERT_TRUE(suite->devices_[0].player->hasKonamiBoon());
     ASSERT_TRUE(result.message.find("7/7") != std::string::npos);

@@ -42,10 +42,8 @@ std::vector<std::string> g_npcGames;  // NPC games to spawn (--npc flag)
 std::string g_launchGame;  // Game to launch directly (--game flag)
 bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable flag)
 
-// Panel cycling state
-bool g_panelCyclingActive = false;  // Whether panel cycling is enabled
-int g_panelCyclingIntervalMs = 3000;  // Interval between panel switches
-std::chrono::steady_clock::time_point g_lastPanelSwitch;  // Last panel switch time
+// Debug cycling state
+cli::DebugCyclingState g_debugCycling;
 
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
@@ -298,7 +296,7 @@ void runScript(const std::string& path,
 
         // Execute command
         std::cout << "> " << line << std::endl;
-        auto result = proc.execute(line, devices, g_selectedDevice, renderer);
+        auto result = proc.execute(line, devices, g_selectedDevice, renderer, g_debugCycling);
         if (!result.message.empty()) {
             std::cout << result.message << std::endl;
         }
@@ -390,8 +388,8 @@ int main(int argc, char** argv) {
             int key = cli::Terminal::readKey();
             while (key != static_cast<int>(cli::Key::NONE)) {
                 // Any keypress stops panel cycling
-                if (g_panelCyclingActive) {
-                    g_panelCyclingActive = false;
+                if (g_debugCycling.panelCyclingActive) {
+                    g_debugCycling.panelCyclingActive = false;
                     g_commandResult = "Panel cycling stopped";
                 }
 
@@ -416,7 +414,7 @@ int main(int argc, char** argv) {
                         g_commandResult = "Selected device " + devices[g_selectedDevice].deviceId;
                     }
                 } else if (key == '\n' || key == '\r') {
-                    auto result = commandProcessor.execute(g_commandBuffer, devices, g_selectedDevice, renderer);
+                    auto result = commandProcessor.execute(g_commandBuffer, devices, g_selectedDevice, renderer, g_debugCycling);
                     g_commandResult = result.message;
                     if (result.shouldQuit) {
                         g_running = false;
@@ -438,12 +436,12 @@ int main(int argc, char** argv) {
             }
 
             // Handle panel cycling
-            if (g_panelCyclingActive && !devices.empty()) {
+            if (g_debugCycling.panelCyclingActive && !devices.empty()) {
                 auto now = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastPanelSwitch).count();
-                if (elapsed >= g_panelCyclingIntervalMs) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_debugCycling.lastPanelSwitch).count();
+                if (elapsed >= g_debugCycling.panelCyclingIntervalMs) {
                     g_selectedDevice = (g_selectedDevice + 1) % devices.size();
-                    g_lastPanelSwitch = now;
+                    g_debugCycling.lastPanelSwitch = now;
                     g_commandResult = "Panel cycled to device " + std::to_string(g_selectedDevice);
                 }
             }

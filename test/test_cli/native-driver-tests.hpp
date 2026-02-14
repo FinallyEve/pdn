@@ -763,9 +763,10 @@ public:
     int selectedDevice_ = 0;
     cli::Renderer renderer_;
     cli::CommandProcessor processor_;
+    cli::DebugCyclingState cyclingState_;
 
     cli::CommandResult exec(const std::string& cmd) {
-        return processor_.execute(cmd, devices_, selectedDevice_, renderer_);
+        return processor_.execute(cmd, devices_, selectedDevice_, renderer_, cyclingState_);
     }
 };
 
@@ -1025,6 +1026,7 @@ public:
     int selectedDevice_;
     cli::CommandProcessor* processor_;
     cli::Renderer* renderer_;
+    cli::DebugCyclingState cyclingState_;
     NativeClockDriver* globalClock_;
     NativeLoggerDriver* globalLogger_;
 };
@@ -1034,7 +1036,7 @@ void cliRoleCommandShowsSelectedDevice(CliRoleCommandTestSuite* suite) {
     // Selected device is 0 (hunter)
     suite->selectedDevice_ = 0;
     auto result = suite->processor_->execute("role", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Device 0010: Hunter");
@@ -1045,14 +1047,14 @@ void cliRoleCommandShowsSpecificDevice(CliRoleCommandTestSuite* suite) {
     // Request bounty device by index
     suite->selectedDevice_ = 0;  // Hunter selected, but we ask for device 1
     auto result = suite->processor_->execute("role 1", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Device 0011: Bounty");
 
     // Request bounty device by ID
     result = suite->processor_->execute("role 0011", suite->devices_,
-                                        suite->selectedDevice_, *suite->renderer_);
+                                        suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Device 0011: Bounty");
@@ -1061,7 +1063,7 @@ void cliRoleCommandShowsSpecificDevice(CliRoleCommandTestSuite* suite) {
 // Test: role all shows all devices
 void cliRoleCommandShowsAllDevices(CliRoleCommandTestSuite* suite) {
     auto result = suite->processor_->execute("role all", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Device 0010 [0]: Hunter | Device 0011 [1]: Bounty");
@@ -1071,7 +1073,7 @@ void cliRoleCommandShowsAllDevices(CliRoleCommandTestSuite* suite) {
 void cliRoleCommandAliasWorks(CliRoleCommandTestSuite* suite) {
     suite->selectedDevice_ = 1;  // Bounty selected
     auto result = suite->processor_->execute("roles", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Device 0011: Bounty");
@@ -1080,7 +1082,7 @@ void cliRoleCommandAliasWorks(CliRoleCommandTestSuite* suite) {
 // Test: role with invalid device shows error
 void cliRoleCommandInvalidDevice(CliRoleCommandTestSuite* suite) {
     auto result = suite->processor_->execute("role 99", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "Invalid device");
@@ -1095,7 +1097,7 @@ void cliRoleCommandNoDevices(CliRoleCommandTestSuite* suite) {
     suite->devices_.clear();
 
     auto result = suite->processor_->execute("role all", suite->devices_,
-                                             suite->selectedDevice_, *suite->renderer_);
+                                             suite->selectedDevice_, *suite->renderer_, suite->cyclingState_);
 
     ASSERT_FALSE(result.shouldQuit);
     ASSERT_EQ(result.message, "No devices");

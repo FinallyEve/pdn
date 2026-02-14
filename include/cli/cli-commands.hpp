@@ -14,12 +14,16 @@
 #include "game/quickdraw.hpp"
 #include "game/progress-manager.hpp"
 
-// External globals for panel cycling (defined in cli-main.cpp)
-extern bool g_panelCyclingActive;
-extern int g_panelCyclingIntervalMs;
-extern std::chrono::steady_clock::time_point g_lastPanelSwitch;
-
 namespace cli {
+
+/**
+ * State for debug panel cycling functionality.
+ */
+struct DebugCyclingState {
+    bool panelCyclingActive = false;
+    int panelCyclingIntervalMs = 3000;
+    std::chrono::steady_clock::time_point lastPanelSwitch;
+};
 
 /**
  * Result of command execution.
@@ -43,7 +47,8 @@ public:
     CommandResult execute(const std::string& cmd,
                           std::vector<DeviceInstance>& devices,
                           int& selectedDevice,
-                          Renderer& renderer) {
+                          Renderer& renderer,
+                          DebugCyclingState& cyclingState) {
         CommandResult result;
         
         if (cmd.empty()) {
@@ -134,7 +139,7 @@ public:
             return cmdDemo(tokens, devices, selectedDevice);
         }
         if (command == "debug") {
-            return cmdDebug(tokens, devices, selectedDevice, renderer);
+            return cmdDebug(tokens, devices, selectedDevice, renderer, cyclingState);
         }
 
         result.message = "Unknown command: " + command + " (try 'help')";
@@ -1149,7 +1154,8 @@ private:
     static CommandResult cmdDebug(const std::vector<std::string>& tokens,
                                   std::vector<DeviceInstance>& devices,
                                   int& selectedDevice,
-                                  Renderer& renderer) {
+                                  Renderer& renderer,
+                                  DebugCyclingState& cyclingState) {
         CommandResult result;
 
         if (tokens.size() < 2) {
@@ -1312,9 +1318,9 @@ private:
                 }
             }
 
-            g_panelCyclingActive = true;
-            g_panelCyclingIntervalMs = intervalMs;
-            g_lastPanelSwitch = std::chrono::steady_clock::now();
+            cyclingState.panelCyclingActive = true;
+            cyclingState.panelCyclingIntervalMs = intervalMs;
+            cyclingState.lastPanelSwitch = std::chrono::steady_clock::now();
 
             char buf[128];
             snprintf(buf, sizeof(buf), "Panel cycling started (%dms interval). Press any key to stop.", intervalMs);
