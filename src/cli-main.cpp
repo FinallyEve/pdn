@@ -21,6 +21,9 @@
 #include "cli/cli-renderer.hpp"
 #include "cli/cli-commands.hpp"
 
+// Game modules
+#include "game/minigame.hpp"
+
 // Native drivers for global instances
 #include "device/drivers/native/native-logger-driver.hpp"
 #include "device/drivers/native/native-clock-driver.hpp"
@@ -65,46 +68,13 @@ void sigwinchHandler(int) {
 }
 
 /**
- * Check if a state ID corresponds to a minigame intro state.
- * Intro states: 100, 200, 300, 400, 500, 600, 700 (for the 7 minigames)
- */
-bool isMinigameIntroState(int stateId) {
-    return (stateId == 100 ||  // Signal Echo
-            stateId == 200 ||  // Firewall Decrypt
-            stateId == 300 ||  // Ghost Runner
-            stateId == 400 ||  // Spike Vector
-            stateId == 500 ||  // Cipher Path
-            stateId == 600 ||  // Exploit Sequencer
-            stateId == 700);   // Breach Defense
-}
-
-/**
- * Get game name from state ID base (100 = Signal Echo, 200 = Firewall Decrypt, etc.)
- */
-std::string getGameNameFromStateId(int stateId) {
-    int base = (stateId / 100) * 100;
-    switch (base) {
-        case 100: return "Signal Echo";
-        case 200: return "Firewall Decrypt";
-        case 300: return "Ghost Runner";
-        case 400: return "Spike Vector";
-        case 500: return "Cipher Path";
-        case 600: return "Exploit Sequencer";
-        case 700: return "Breach Defense";
-        default: return "Unknown";
-    }
-}
-
-/**
- * Check if a device is currently in a minigame (state ID in range [100-799])
- */
-bool isInMinigame(int stateId) {
-    return stateId >= 100 && stateId < 800;
-}
-
-/**
  * Update replay tracking for a device.
- * Detects game start, tracks inputs, and finishes recording on game end.
+ * Detects game start via MiniGame lifecycle, tracks inputs, and finishes recording on game end.
+ *
+ * Fixes:
+ * - Uses MiniGame::resetGame() hook to detect game start (no hardcoded state IDs)
+ * - Reads difficulty from MiniGameOutcome::hardMode
+ * - Tracks game completion via MiniGame::isGameComplete()
  */
 void updateReplayTracking(cli::DeviceInstance& device,
                           DeviceReplayState& replayState,
@@ -112,38 +82,47 @@ void updateReplayTracking(cli::DeviceInstance& device,
                           NativeClockDriver* globalClock) {
     if (!device.game) return;
 
+    // Only track replays for MiniGame instances (FDN devices and standalone games)
+    MiniGame* minigame = dynamic_cast<MiniGame*>(device.game);
+    if (!minigame) return;
+
     State* currentState = device.game->getCurrentState();
     if (!currentState) return;
 
     int stateId = currentState->getStateId();
 
-    // Detect minigame start (transition to intro state)
-    if (isMinigameIntroState(stateId) && !replayState.inMinigame) {
-        replayState.inMinigame = true;
-        replayState.lastStateId = stateId;
-        replayState.gameStartTimeMs = globalClock->milliseconds();
-        replayState.gameName = getGameNameFromStateId(stateId);
+    // Detect minigame start by checking if the game was just reset
+    // (outcome is IN_PROGRESS and startTimeMs is recent)
+    if (!replayState.inMinigame) {
+        const MiniGameOutcome& outcome = minigame->getOutcome();
 
-        // Try to detect difficulty from game config (for now, default to "easy")
-        replayState.difficulty = "easy";  // TODO: detect from game config if available
+        // Check if game just started (startTimeMs was set recently and not recording yet)
+        if (outcome.result == MiniGameResult::IN_PROGRESS &&
+            outcome.startTimeMs > 0 &&
+            globalClock->milliseconds() - outcome.startTimeMs < 100) {
 
-        // Start recording
-        replayMgr.startRecording(replayState.gameName, replayState.difficulty, 0);
+            replayState.inMinigame = true;
+            replayState.lastStateId = stateId;
+            replayState.gameStartTimeMs = outcome.startTimeMs;
+
+            // Get game name from GameType
+            replayState.gameName = getGameDisplayName(minigame->getGameType());
+
+            // Get difficulty from outcome
+            replayState.difficulty = outcome.hardMode ? "hard" : "easy";
+
+            // Start recording
+            replayMgr.startRecording(replayState.gameName, replayState.difficulty, 0);
+        }
     }
-    // Detect minigame end (transition out of minigame state range)
-    else if (replayState.inMinigame && !isInMinigame(stateId)) {
-        // Game ended - check outcome
-        if (device.game && replayMgr.isRecording()) {
-            MiniGame* minigame = dynamic_cast<MiniGame*>(device.game);
-            if (minigame && minigame->isGameComplete()) {
-                const MiniGameOutcome& outcome = minigame->getOutcome();
-                bool won = (outcome.result == MiniGameResult::WON);
-                uint32_t durationMs = globalClock->milliseconds() - replayState.gameStartTimeMs;
-                replayMgr.finishRecording(won, durationMs);
-            } else {
-                // No outcome available, cancel recording
-                replayMgr.cancelRecording();
-            }
+    // Detect minigame end via isGameComplete()
+    else if (replayState.inMinigame && minigame->isGameComplete()) {
+        // Game completed - finish recording
+        if (replayMgr.isRecording()) {
+            const MiniGameOutcome& outcome = minigame->getOutcome();
+            bool won = (outcome.result == MiniGameResult::WON);
+            uint32_t durationMs = globalClock->milliseconds() - replayState.gameStartTimeMs;
+            replayMgr.finishRecording(won, durationMs);
         }
 
         replayState.inMinigame = false;
@@ -495,7 +474,17 @@ void runScript(const std::string& path,
 
         // Execute command
         std::cout << "> " << line << std::endl;
-        auto result = proc.execute(line, devices, g_selectedDevice, renderer);
+
+        // Set up replay context for command if selected device is in minigame
+        cli::ReplayContext replayCtx;
+        if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
+            replayCtx.manager = &replayMgr;
+            replayCtx.inMinigame = g_replayStates[g_selectedDevice].inMinigame;
+            replayCtx.gameStartTimeMs = g_replayStates[g_selectedDevice].gameStartTimeMs;
+            replayCtx.clock = globalClock;
+        }
+
+        auto result = proc.execute(line, devices, g_selectedDevice, renderer, &replayCtx);
         if (!result.message.empty()) {
             std::cout << result.message << std::endl;
         }
@@ -690,7 +679,16 @@ int main(int argc, char** argv) {
                         g_commandResult = "Selected device " + devices[g_selectedDevice].deviceId;
                     }
                 } else if (key == '\n' || key == '\r') {
-                    auto result = commandProcessor.execute(g_commandBuffer, devices, g_selectedDevice, renderer);
+                    // Set up replay context for command if selected device is in minigame
+                    cli::ReplayContext replayCtx;
+                    if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
+                        replayCtx.manager = &replayMgr;
+                        replayCtx.inMinigame = g_replayStates[g_selectedDevice].inMinigame;
+                        replayCtx.gameStartTimeMs = g_replayStates[g_selectedDevice].gameStartTimeMs;
+                        replayCtx.clock = globalClock;
+                    }
+
+                    auto result = commandProcessor.execute(g_commandBuffer, devices, g_selectedDevice, renderer, &replayCtx);
                     g_commandResult = result.message;
                     if (result.shouldQuit) {
                         g_running = false;

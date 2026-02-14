@@ -17,6 +17,17 @@
 namespace cli {
 
 /**
+ * Replay context for recording button inputs during command execution.
+ * Passed from cli-main.cpp to CommandProcessor to enable replay recording.
+ */
+struct ReplayContext {
+    ReplayManager* manager = nullptr;
+    bool inMinigame = false;
+    uint32_t gameStartTimeMs = 0;
+    PlatformClock* clock = nullptr;
+};
+
+/**
  * Result of command execution.
  */
 struct CommandResult {
@@ -33,14 +44,16 @@ public:
     CommandProcessor() = default;
 
     ReplayManager& getReplayManager() { return replayManager; }
-    
+
     /**
      * Parse and execute a command string.
+     * @param replayCtx Optional replay context for recording button inputs
      */
     CommandResult execute(const std::string& cmd,
                           std::vector<DeviceInstance>& devices,
                           int& selectedDevice,
-                          Renderer& renderer) {
+                          Renderer& renderer,
+                          ReplayContext* replayCtx = nullptr) {
         CommandResult result;
         
         if (cmd.empty()) {
@@ -71,16 +84,16 @@ public:
             return cmdSelect(tokens, devices, selectedDevice);
         }
         if (command == "b" || command == "button" || command == "click") {
-            return cmdButton1Click(tokens, devices, selectedDevice);
+            return cmdButton1Click(tokens, devices, selectedDevice, replayCtx);
         }
         if (command == "l" || command == "long" || command == "longpress") {
-            return cmdButton1Long(tokens, devices, selectedDevice);
+            return cmdButton1Long(tokens, devices, selectedDevice, replayCtx);
         }
         if (command == "b2" || command == "button2" || command == "click2") {
-            return cmdButton2Click(tokens, devices, selectedDevice);
+            return cmdButton2Click(tokens, devices, selectedDevice, replayCtx);
         }
         if (command == "l2" || command == "long2" || command == "longpress2") {
-            return cmdButton2Long(tokens, devices, selectedDevice);
+            return cmdButton2Long(tokens, devices, selectedDevice, replayCtx);
         }
         if (command == "state" || command == "st") {
             return cmdState(tokens, devices, selectedDevice);
@@ -210,7 +223,8 @@ private:
     
     static CommandResult cmdButton1Click(const std::vector<std::string>& tokens,
                                          std::vector<DeviceInstance>& devices,
-                                         int selectedDevice) {
+                                         int selectedDevice,
+                                         ReplayContext* replayCtx) {
         CommandResult result;
         int targetDevice = selectedDevice;
         if (tokens.size() >= 2) {
@@ -219,6 +233,12 @@ private:
         if (targetDevice >= 0 && targetDevice < static_cast<int>(devices.size())) {
             devices[targetDevice].primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
             result.message = "Button1 click on " + devices[targetDevice].deviceId;
+
+            // Record input for replay if context is available
+            if (replayCtx && replayCtx->manager && replayCtx->inMinigame && replayCtx->clock) {
+                uint32_t gameTimeMs = replayCtx->clock->milliseconds() - replayCtx->gameStartTimeMs;
+                replayCtx->manager->recordInput("b1_click", gameTimeMs);
+            }
         } else {
             result.message = "Invalid device";
         }
@@ -227,7 +247,8 @@ private:
     
     static CommandResult cmdButton1Long(const std::vector<std::string>& tokens,
                                         std::vector<DeviceInstance>& devices,
-                                        int selectedDevice) {
+                                        int selectedDevice,
+                                        ReplayContext* replayCtx) {
         CommandResult result;
         int targetDevice = selectedDevice;
         if (tokens.size() >= 2) {
@@ -236,6 +257,12 @@ private:
         if (targetDevice >= 0 && targetDevice < static_cast<int>(devices.size())) {
             devices[targetDevice].primaryButtonDriver->execCallback(ButtonInteraction::LONG_PRESS);
             result.message = "Button1 long press on " + devices[targetDevice].deviceId;
+
+            // Record input for replay if context is available
+            if (replayCtx && replayCtx->manager && replayCtx->inMinigame && replayCtx->clock) {
+                uint32_t gameTimeMs = replayCtx->clock->milliseconds() - replayCtx->gameStartTimeMs;
+                replayCtx->manager->recordInput("b1_long", gameTimeMs);
+            }
         } else {
             result.message = "Invalid device";
         }
@@ -244,7 +271,8 @@ private:
     
     static CommandResult cmdButton2Click(const std::vector<std::string>& tokens,
                                          std::vector<DeviceInstance>& devices,
-                                         int selectedDevice) {
+                                         int selectedDevice,
+                                         ReplayContext* replayCtx) {
         CommandResult result;
         int targetDevice = selectedDevice;
         if (tokens.size() >= 2) {
@@ -253,6 +281,12 @@ private:
         if (targetDevice >= 0 && targetDevice < static_cast<int>(devices.size())) {
             devices[targetDevice].secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
             result.message = "Button2 click on " + devices[targetDevice].deviceId;
+
+            // Record input for replay if context is available
+            if (replayCtx && replayCtx->manager && replayCtx->inMinigame && replayCtx->clock) {
+                uint32_t gameTimeMs = replayCtx->clock->milliseconds() - replayCtx->gameStartTimeMs;
+                replayCtx->manager->recordInput("b2_click", gameTimeMs);
+            }
         } else {
             result.message = "Invalid device";
         }
@@ -261,7 +295,8 @@ private:
     
     static CommandResult cmdButton2Long(const std::vector<std::string>& tokens,
                                         std::vector<DeviceInstance>& devices,
-                                        int selectedDevice) {
+                                        int selectedDevice,
+                                        ReplayContext* replayCtx) {
         CommandResult result;
         int targetDevice = selectedDevice;
         if (tokens.size() >= 2) {
@@ -270,6 +305,12 @@ private:
         if (targetDevice >= 0 && targetDevice < static_cast<int>(devices.size())) {
             devices[targetDevice].secondaryButtonDriver->execCallback(ButtonInteraction::LONG_PRESS);
             result.message = "Button2 long press on " + devices[targetDevice].deviceId;
+
+            // Record input for replay if context is available
+            if (replayCtx && replayCtx->manager && replayCtx->inMinigame && replayCtx->clock) {
+                uint32_t gameTimeMs = replayCtx->clock->milliseconds() - replayCtx->gameStartTimeMs;
+                replayCtx->manager->recordInput("b2_long", gameTimeMs);
+            }
         } else {
             result.message = "Invalid device";
         }
