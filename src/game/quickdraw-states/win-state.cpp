@@ -12,9 +12,17 @@ Win::~Win() {
 void Win::onStateMounted(Device *PDN) {
     PDN->getHaptics()->setIntensity(VIBRATION_OFF);
 
-    PDN->getDisplay()->invalidateScreen()->
-    drawImage(Quickdraw::getImageForAllegiance(player->getAllegiance(), ImageType::WIN))->
-    render();
+    auto display = PDN->getDisplay();
+    display->invalidateScreen();
+
+    BoldRetroUI::drawHeaderBar(display, "VICTORY!");
+
+    BoldRetroUI::drawBorderedFrame(display, 35, 15, 58, 20);
+    display->drawText("SCORE: +250", 42, 28);
+
+    BoldRetroUI::drawCenteredText(display, "MATCH COMPLETE", 48);
+
+    display->render();
 
     winTimer.setTimer(8000);
 

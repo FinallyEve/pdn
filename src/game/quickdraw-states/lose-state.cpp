@@ -10,9 +10,20 @@ Lose::~Lose() {
 }
 
 void Lose::onStateMounted(Device *PDN) {
-    PDN->getDisplay()->invalidateScreen()->
-    drawImage(Quickdraw::getImageForAllegiance(player->getAllegiance(), ImageType::LOSE))->
-    render();
+    auto display = PDN->getDisplay();
+    display->invalidateScreen();
+
+    BoldRetroUI::drawHeaderBar(display, "DEFEATED");
+
+    display->drawText("X  X", 54, 25);
+    display->drawText("X  X", 54, 30);
+
+    BoldRetroUI::drawBorderedFrame(display, 35, 34, 58, 12);
+    display->drawText("ATTEMPTS: 1/3", 42, 42);
+
+    BoldRetroUI::drawCenteredText(display, "TRY AGAIN?", 54);
+
+    display->render();
 
     loseTimer.setTimer(8000);
 

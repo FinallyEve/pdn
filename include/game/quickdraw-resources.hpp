@@ -8,6 +8,7 @@
 #include "images-raw.hpp"
 #include "image.hpp"
 #include "device/drivers/light-interface.hpp"
+#include "device/drivers/display.hpp"
 #include "game/player.hpp"
 
 typedef std::map<ImageType, Image> ImageCollection;
@@ -371,5 +372,28 @@ static const LEDState COUNTDOWN_DUEL_STATE = [](){
     }
     return state;
 }();
+
+namespace BoldRetroUI {
+    inline void drawHeaderBar(Display* display, const char* text) {
+        display->drawBox(0, 0, 128, 10)
+               ->setDrawColor(0)
+               ->drawText(text, 2, 9)
+               ->setDrawColor(1);
+    }
+
+    inline void drawBorderedFrame(Display* display, int x, int y, int w, int h) {
+        display->drawFrame(x, y, w, h)
+               ->drawFrame(x+1, y+1, w-2, h-2);
+    }
+
+    inline void drawCenteredText(Display* display, const char* text, int y) {
+        int textWidth = 0;
+        const char* p = text;
+        while (*p++) textWidth++;
+        textWidth *= 6;
+        int x = (128 - textWidth) / 2;
+        display->drawText(text, x, y);
+    }
+}
 
 #endif
