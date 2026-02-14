@@ -54,14 +54,17 @@ void FdnComplete::onStateMounted(Device* PDN) {
            won ? "WON" : "LOST",
            outcome.score);
 
-    // Record result for difficulty scaling (uses a fixed completion time estimate)
-    // TODO: track actual completion time in MiniGameOutcome
+    // Calculate actual completion time
+    uint32_t currentTime = SimpleTimer::getPlatformClock()->milliseconds();
+    uint32_t elapsedMs = (currentTime >= outcome.startTimeMs) ?
+                         (currentTime - outcome.startTimeMs) : 0;
+
+    // Record result for difficulty scaling using actual completion time
     if (scaler) {
-        uint32_t estimatedTime = 30000;  // 30 seconds default
-        scaler->recordResult(gameType, won, estimatedTime);
+        scaler->recordResult(gameType, won, elapsedMs);
         float newScale = scaler->getScaledDifficulty(gameType);
         std::string label = scaler->getDifficultyLabel(gameType);
-        LOG_I(TAG, "Difficulty scale updated: %.2f (%s)", newScale, label.c_str());
+        LOG_I(TAG, "Difficulty scale updated: %.2f (%s) | Time: %ums", newScale, label.c_str(), elapsedMs);
     }
 
     // Cache the result for upload
@@ -74,9 +77,6 @@ void FdnComplete::onStateMounted(Device* PDN) {
     bool recreational = player->isRecreationalMode();
 
     // Record game statistics
-    uint32_t currentTime = SimpleTimer::getPlatformClock()->milliseconds();
-    uint32_t elapsedMs = (currentTime >= outcome.startTimeMs) ?
-                         (currentTime - outcome.startTimeMs) : 0;
 
     if (outcome.result == MiniGameResult::WON) {
         player->getGameStatsTracker().recordWin(gameType, outcome.hardMode, elapsedMs);
