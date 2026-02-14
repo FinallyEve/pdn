@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <chrono>
 
 #include "cli/cli-device.hpp"
 #include "cli/cli-renderer.hpp"
@@ -14,6 +15,17 @@
 #include "game/progress-manager.hpp"
 
 namespace cli {
+
+// Extern declarations for debug cycling state (defined in cli-main.cpp)
+extern bool g_panelCycling;
+extern int g_panelCycleInterval;
+extern std::chrono::steady_clock::time_point g_panelCycleLastSwitch;
+
+extern bool g_stateCycling;
+extern int g_stateCycleDevice;
+extern int g_stateCycleInterval;
+extern int g_stateCycleStep;
+extern std::chrono::steady_clock::time_point g_stateCycleLastSwitch;
 
 /**
  * Result of command execution.
@@ -126,6 +138,9 @@ public:
         }
         if (command == "demo") {
             return cmdDemo(tokens, devices, selectedDevice);
+        }
+        if (command == "debug") {
+            return cmdDebug(tokens, devices, selectedDevice);
         }
 
         result.message = "Unknown command: " + command + " (try 'help')";
@@ -1088,6 +1103,182 @@ private:
         result.message += "Device " + devices.back().deviceId + " now selected.\n";
         result.message += "Controls: UP=primary button, DOWN=secondary button";
 
+        return result;
+    }
+
+    static CommandResult cmdDebug(const std::vector<std::string>& tokens,
+                                  std::vector<DeviceInstance>& devices,
+                                  int& selectedDevice) {
+        CommandResult result;
+
+        if (tokens.size() < 2) {
+            result.message = "Usage: debug <subcommand> - try 'debug help'";
+            return result;
+        }
+
+        std::string subcommand = tokens[1];
+        for (char& c : subcommand) {
+            if (c >= 'A' && c <= 'Z') c += 32;
+        }
+
+        if (subcommand == "help") {
+            result.message = "Debug commands:\n"
+                             "  debug show-state           - show one-line summary of all devices\n"
+                             "  debug cycle-panels [ms]    - auto-cycle through device panels\n"
+                             "  debug cycle-states <dev> [ms] - auto-cycle device through states";
+            return result;
+        }
+
+        if (subcommand == "show-state") {
+            return cmdDebugShowState(tokens, devices);
+        }
+
+        if (subcommand == "cycle-panels") {
+            return cmdDebugCyclePanels(tokens, devices, selectedDevice);
+        }
+
+        if (subcommand == "cycle-states") {
+            return cmdDebugCycleStates(tokens, devices, selectedDevice);
+        }
+
+        result.message = "Unknown debug subcommand: " + subcommand + " (try 'debug help')";
+        return result;
+    }
+
+    static CommandResult cmdDebugShowState(const std::vector<std::string>& /*tokens*/,
+                                           const std::vector<DeviceInstance>& devices) {
+        CommandResult result;
+        std::string output;
+
+        for (size_t i = 0; i < devices.size(); i++) {
+            const auto& dev = devices[i];
+
+            // Get basic device info
+            output += "[" + std::to_string(i) + "] ";
+
+            // Device type
+            if (dev.deviceType == DeviceType::PLAYER) {
+                output += "Player " + std::string(dev.isHunter ? "HUNTER" : "BOUNTY");
+
+                // Allegiance
+                if (dev.player) {
+                    output += " allegiance=" + dev.player->getAllegianceString();
+                }
+            } else if (dev.deviceType == DeviceType::FDN) {
+                output += "NPC FDN";
+
+                // NPC state
+                State* currentState = dev.game ? dev.game->getCurrentState() : nullptr;
+                if (currentState) {
+                    int stateId = currentState->getStateId();
+                    output += " state=" + std::string(getFdnStateName(stateId));
+                }
+
+                // Game name
+                output += " game=" + std::string(getGameDisplayName(dev.gameType));
+            } else {
+                output += "Challenge";
+                output += " game=" + std::string(getGameDisplayName(dev.gameType));
+            }
+
+            // LED state (get dominant color from left lights)
+            if (dev.lightDriver) {
+                const auto& leftLights = dev.lightDriver->getLeftLights();
+                // Use first non-zero LED or LED 0
+                LEDState::SingleLEDState led = leftLights[0];
+                for (int j = 0; j < 9; j++) {
+                    if (leftLights[j].brightness > 0) {
+                        led = leftLights[j];
+                        break;
+                    }
+                }
+                output += " led=(" + std::to_string(led.color.red) + "," +
+                          std::to_string(led.color.green) + "," +
+                          std::to_string(led.color.blue) + ")";
+            }
+
+            if (i < devices.size() - 1) output += "\n";
+        }
+
+        result.message = output;
+        return result;
+    }
+
+    static CommandResult cmdDebugCyclePanels(const std::vector<std::string>& tokens,
+                                             const std::vector<DeviceInstance>& devices,
+                                             int& /*selectedDevice*/) {
+        CommandResult result;
+
+        // Parse interval (default 3000ms)
+        int interval = 3000;
+        if (tokens.size() >= 3) {
+            interval = std::atoi(tokens[2].c_str());
+            if (interval <= 0) {
+                result.message = "Invalid interval (must be > 0)";
+                return result;
+            }
+        }
+
+        if (devices.empty()) {
+            result.message = "No devices to cycle";
+            return result;
+        }
+
+        // Set global cycling state (extern variables defined in cli-main.cpp)
+        extern bool g_panelCycling;
+        extern int g_panelCycleInterval;
+        extern std::chrono::steady_clock::time_point g_panelCycleLastSwitch;
+
+        g_panelCycling = true;
+        g_panelCycleInterval = interval;
+        g_panelCycleLastSwitch = std::chrono::steady_clock::now();
+
+        result.message = "Panel cycling started (" + std::to_string(interval) + "ms)";
+        return result;
+    }
+
+    static CommandResult cmdDebugCycleStates(const std::vector<std::string>& tokens,
+                                             std::vector<DeviceInstance>& devices,
+                                             int selectedDevice) {
+        CommandResult result;
+
+        if (tokens.size() < 3) {
+            result.message = "Usage: debug cycle-states <device> [interval_ms]";
+            return result;
+        }
+
+        // Find device
+        int targetDevice = findDevice(tokens[2], devices, selectedDevice);
+        if (targetDevice < 0 || targetDevice >= static_cast<int>(devices.size())) {
+            result.message = "Invalid device: " + tokens[2];
+            return result;
+        }
+
+        // Parse interval (default 2000ms)
+        int interval = 2000;
+        if (tokens.size() >= 4) {
+            interval = std::atoi(tokens[3].c_str());
+            if (interval <= 0) {
+                result.message = "Invalid interval (must be > 0)";
+                return result;
+            }
+        }
+
+        // Set global cycling state (extern variables defined in cli-main.cpp)
+        extern bool g_stateCycling;
+        extern int g_stateCycleDevice;
+        extern int g_stateCycleInterval;
+        extern int g_stateCycleStep;
+        extern std::chrono::steady_clock::time_point g_stateCycleLastSwitch;
+
+        g_stateCycling = true;
+        g_stateCycleDevice = targetDevice;
+        g_stateCycleInterval = interval;
+        g_stateCycleStep = 0;
+        g_stateCycleLastSwitch = std::chrono::steady_clock::now();
+
+        result.message = "State cycling device " + devices[targetDevice].deviceId +
+                         " (" + std::to_string(interval) + "ms)";
         return result;
     }
 

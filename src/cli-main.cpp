@@ -42,6 +42,9 @@ std::vector<std::string> g_npcGames;  // NPC games to spawn (--npc flag)
 std::string g_launchGame;  // Game to launch directly (--game flag)
 bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable flag)
 
+// Debug cycling state (defined in cli-debug-state.cpp)
+// Extern declarations are in cli-commands.hpp
+
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
     g_running = false;
@@ -383,6 +386,7 @@ int main(int argc, char** argv) {
         while (g_running) {
             // Handle input (non-blocking)
             int key = cli::Terminal::readKey();
+            bool hadInput = (key != static_cast<int>(cli::Key::NONE));
             while (key != static_cast<int>(cli::Key::NONE)) {
                 if (key == static_cast<int>(cli::Key::ARROW_UP)) {
                     if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
@@ -424,6 +428,68 @@ int main(int argc, char** argv) {
                     g_commandBuffer += static_cast<char>(key);
                 }
                 key = cli::Terminal::readKey();
+            }
+
+            // Stop cycling on any keypress
+            if (hadInput) {
+                if (cli::g_panelCycling) {
+                    cli::g_panelCycling = false;
+                    g_commandResult = "Panel cycling stopped";
+                }
+                if (cli::g_stateCycling) {
+                    cli::g_stateCycling = false;
+                    g_commandResult = "State cycling stopped";
+                }
+            }
+
+            // Handle panel cycling
+            if (cli::g_panelCycling && !devices.empty()) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - cli::g_panelCycleLastSwitch).count();
+                if (elapsed >= cli::g_panelCycleInterval) {
+                    g_selectedDevice = (g_selectedDevice + 1) % static_cast<int>(devices.size());
+                    cli::g_panelCycleLastSwitch = now;
+                }
+            }
+
+            // Handle state cycling
+            if (cli::g_stateCycling && cli::g_stateCycleDevice >= 0 &&
+                cli::g_stateCycleDevice < static_cast<int>(devices.size())) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - cli::g_stateCycleLastSwitch).count();
+                if (elapsed >= cli::g_stateCycleInterval) {
+                    auto& dev = devices[cli::g_stateCycleDevice];
+
+                    if (dev.deviceType == DeviceType::FDN) {
+                        // Cycle NPC states: NpcIdle → NpcHandshake → NpcGameActive → NpcReceiveResult → loop
+                        int npcStates[] = {0, 1, 2, 3};  // NPC state IDs
+                        int currentStateId = npcStates[cli::g_stateCycleStep % 4];
+                        cli::g_stateCycleStep++;
+
+                        // Use skipToState to change NPC state
+                        if (dev.game) {
+                            dev.game->skipToState(dev.pdn, currentStateId);
+                        }
+                    } else if (dev.deviceType == DeviceType::PLAYER) {
+                        // Cycle player allegiances: ALLEYCAT → ENDLINE → HELIX → RESISTANCE → loop
+                        Allegiance allegiances[] = {
+                            Allegiance::ALLEYCAT,
+                            Allegiance::ENDLINE,
+                            Allegiance::HELIX,
+                            Allegiance::RESISTANCE
+                        };
+                        Allegiance nextAllegiance = allegiances[cli::g_stateCycleStep % 4];
+                        cli::g_stateCycleStep++;
+
+                        if (dev.player) {
+                            dev.player->setAllegiance(nextAllegiance);
+                        }
+                    }
+
+                    cli::g_stateCycleLastSwitch = now;
+                }
             }
 
             NativePeerBroker::getInstance().deliverPackets();
