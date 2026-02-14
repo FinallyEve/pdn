@@ -576,13 +576,19 @@ int main(int argc, char** argv) {
                 if (elapsed >= g_stateCycleInterval) {
                     auto& dev = devices[g_stateCycleDevice];
 
-                    // Cycle through states: Idle (0) -> FdnDetected (7) -> MiniGame (varies) -> FdnComplete (8) -> back to Idle
-                    // For Quickdraw game, the state IDs are:
-                    // 0 = Idle, 7 = FdnDetected, 8 = FdnComplete
-                    // We'll use a simpler approach: just toggle between a few key states
+                    int nextStateId = -1;
 
-                    const int stateSequence[] = {0, 7, 8, 0};  // Idle -> FdnDetected -> FdnComplete -> Idle
-                    int nextStateId = stateSequence[g_stateCycleStep % 4];
+                    if (dev.deviceType == DeviceType::FDN) {
+                        // NPC devices: cycle through NPC states
+                        // 0 = NPC_IDLE, 1 = NPC_HANDSHAKE, 2 = NPC_GAME_ACTIVE, 3 = NPC_RECEIVE_RESULT
+                        const int npcSequence[] = {0, 1, 2, 3};
+                        nextStateId = npcSequence[g_stateCycleStep % 4];
+                    } else {
+                        // Player devices: cycle through Quickdraw gameplay states
+                        // 8 = IDLE, 21 = FDN_DETECTED, 22 = FDN_COMPLETE
+                        const int playerSequence[] = {8, 21, 22};
+                        nextStateId = playerSequence[g_stateCycleStep % 3];
+                    }
 
                     dev.game->skipToState(dev.pdn, nextStateId);
                     g_stateCycleStep++;

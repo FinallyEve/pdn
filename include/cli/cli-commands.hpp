@@ -1418,6 +1418,7 @@ private:
                              "  debug set-led <device_idx> <r> <g> <b>       - Force LED RGB values (0-255)\n"
                              "  debug cycle-panels [interval_ms]             - Toggle auto-cycling through device panels (default: 2000ms)\n"
                              "  debug cycle-states <device_idx> [interval_ms] - Toggle cycling device through game states (default: 3000ms)\n"
+                             "  debug show-state [device_idx]                - Show device state summary (type, state, allegiance, LED)\n"
                              "  debug help                                    - Show this help";
             return result;
         }
@@ -1613,6 +1614,49 @@ private:
                 result.message = "State cycling ENABLED for device " + std::to_string(deviceIdx) +
                                 " (interval: " + std::to_string(g_stateCycleInterval) + "ms)";
             }
+            return result;
+        }
+
+        if (subcommand == "show-state") {
+            int targetDevice = selectedDevice;
+            if (tokens.size() >= 3) {
+                targetDevice = findDevice(tokens[2], devices, -1);
+            }
+
+            if (targetDevice < 0 || targetDevice >= static_cast<int>(devices.size())) {
+                result.message = "Invalid device index";
+                return result;
+            }
+
+            auto& dev = devices[targetDevice];
+            State* currentState = dev.game->getCurrentState();
+            int stateId = currentState ? currentState->getStateId() : -1;
+            std::string stateName = getStateName(stateId, dev.deviceType);
+
+            // Get device type string
+            std::string typeStr = (dev.deviceType == DeviceType::PLAYER) ? "PLAYER" : "FDN";
+
+            // Get LED color (read from light driver)
+            auto ledState = dev.lightDriver->getLight(LightIdentifier::GLOBAL, 0);
+            int r = ledState.color.red;
+            int g = ledState.color.green;
+            int b = ledState.color.blue;
+
+            char buf[256];
+            if (dev.deviceType == DeviceType::PLAYER && dev.player) {
+                // Show allegiance for player devices
+                std::string allegianceStr = dev.player->getAllegianceString();
+                snprintf(buf, sizeof(buf), "Device %d (%s): Type=%s State=%s Allegiance=%s LED=(%d,%d,%d)",
+                         targetDevice, dev.deviceId.c_str(), typeStr.c_str(),
+                         stateName.c_str(), allegianceStr.c_str(), r, g, b);
+            } else {
+                // FDN devices don't have allegiance
+                snprintf(buf, sizeof(buf), "Device %d (%s): Type=%s State=%s LED=(%d,%d,%d)",
+                         targetDevice, dev.deviceId.c_str(), typeStr.c_str(),
+                         stateName.c_str(), r, g, b);
+            }
+
+            result.message = buf;
             return result;
         }
 
