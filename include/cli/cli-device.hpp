@@ -210,6 +210,30 @@ inline const char* getStateName(int stateId, DeviceType deviceType = DeviceType:
     return getQuickdrawStateName(stateId);
 }
 
+inline const char* getAllegianceName(Allegiance allegiance) {
+    switch (allegiance) {
+        case Allegiance::ALLEYCAT: return "ALLEYCAT";
+        case Allegiance::ENDLINE: return "ENDLINE";
+        case Allegiance::HELIX: return "HELIX";
+        case Allegiance::RESISTANCE: return "RESISTANCE";
+        default: return "NONE";
+    }
+}
+
+inline const char* getGameTypeName(GameType gameType) {
+    switch (gameType) {
+        case GameType::QUICKDRAW: return "Quickdraw";
+        case GameType::SIGNAL_ECHO: return "SignalEcho";
+        case GameType::GHOST_RUNNER: return "GhostRunner";
+        case GameType::SPIKE_VECTOR: return "SpikeVector";
+        case GameType::FIREWALL_DECRYPT: return "FirewallDecrypt";
+        case GameType::CIPHER_PATH: return "CipherPath";
+        case GameType::EXPLOIT_SEQUENCER: return "ExploitSequencer";
+        case GameType::BREACH_DEFENSE: return "BreachDefense";
+        default: return "Unknown";
+    }
+}
+
 /**
  * Structure to hold all components for a single simulated PDN device.
  */

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <chrono>
 
 #include "cli/cli-device.hpp"
 #include "cli/cli-renderer.hpp"
@@ -12,6 +13,11 @@
 #include "device/drivers/native/native-peer-broker.hpp"
 #include "game/quickdraw.hpp"
 #include "game/progress-manager.hpp"
+
+// External globals for panel cycling (defined in cli-main.cpp)
+extern bool g_panelCyclingActive;
+extern int g_panelCyclingIntervalMs;
+extern std::chrono::steady_clock::time_point g_lastPanelSwitch;
 
 namespace cli {
 
@@ -1161,6 +1167,8 @@ private:
                              "  debug set-npc-state <device_idx> <state>    - Force NPC state (NpcIdle, NpcHandshake, NpcGameActive, NpcReceiveResult)\n"
                              "  debug set-allegiance <device_idx> <value>    - Force allegiance (0=ALLEYCAT, 1=ENDLINE, 2=HELIX, 3=RESISTANCE)\n"
                              "  debug set-led <device_idx> <r> <g> <b>       - Force LED RGB values (0-255)\n"
+                             "  debug cycle-panels [interval_ms]             - Start cycling through device panels (default 3000ms, stop with any key)\n"
+                             "  debug show-state [device_idx]                - Show one-line summary of device state (all devices if no index)\n"
                              "  debug help                                    - Show this help";
             return result;
         }
@@ -1291,6 +1299,98 @@ private:
             snprintf(buf, sizeof(buf), "Device %d LED set to (%d, %d, %d)",
                      deviceIdx, r, g, b);
             result.message = buf;
+            return result;
+        }
+
+        if (subcommand == "cycle-panels") {
+            int intervalMs = 3000;
+            if (tokens.size() >= 3) {
+                intervalMs = std::atoi(tokens[2].c_str());
+                if (intervalMs < 100 || intervalMs > 60000) {
+                    result.message = "Interval must be between 100 and 60000 ms";
+                    return result;
+                }
+            }
+
+            g_panelCyclingActive = true;
+            g_panelCyclingIntervalMs = intervalMs;
+            g_lastPanelSwitch = std::chrono::steady_clock::now();
+
+            char buf[128];
+            snprintf(buf, sizeof(buf), "Panel cycling started (%dms interval). Press any key to stop.", intervalMs);
+            result.message = buf;
+            return result;
+        }
+
+        if (subcommand == "show-state") {
+            std::string output;
+
+            if (tokens.size() >= 3) {
+                // Show specific device
+                int deviceIdx = findDevice(tokens[2], devices, -1);
+                if (deviceIdx < 0 || deviceIdx >= static_cast<int>(devices.size())) {
+                    result.message = "Invalid device index: " + tokens[2];
+                    return result;
+                }
+
+                auto& dev = devices[deviceIdx];
+                char buf[256];
+
+                if (dev.deviceType == DeviceType::PLAYER && dev.player) {
+                    const char* role = dev.player->isHunter() ? "HUNTER" : "BOUNTY";
+                    const char* allegiance = getAllegianceName(dev.player->getAllegiance());
+                    auto led = dev.lightDriver->getLight(LightIdentifier::GLOBAL, 0);
+                    snprintf(buf, sizeof(buf), "[%d] Player %s allegiance=%s led=(%d,%d,%d) state=%s",
+                             deviceIdx, role, allegiance,
+                             led.color.red, led.color.green, led.color.blue,
+                             getStateName(dev.game->getCurrentState()->getStateId(), dev.deviceType, dev.gameType));
+                    output = buf;
+                } else if (dev.deviceType == DeviceType::FDN) {
+                    const char* gameTypeName = getGameTypeName(dev.gameType);
+                    auto led = dev.lightDriver->getLight(LightIdentifier::GLOBAL, 0);
+                    snprintf(buf, sizeof(buf), "[%d] NPC FDN state=%s game=%s led=(%d,%d,%d)",
+                             deviceIdx,
+                             getStateName(dev.game->getCurrentState()->getStateId(), dev.deviceType, dev.gameType),
+                             gameTypeName,
+                             led.color.red, led.color.green, led.color.blue);
+                    output = buf;
+                } else {
+                    snprintf(buf, sizeof(buf), "[%d] Unknown device type", deviceIdx);
+                    output = buf;
+                }
+            } else {
+                // Show all devices
+                for (size_t i = 0; i < devices.size(); i++) {
+                    auto& dev = devices[i];
+                    char buf[256];
+
+                    if (dev.deviceType == DeviceType::PLAYER && dev.player) {
+                        const char* role = dev.player->isHunter() ? "HUNTER" : "BOUNTY";
+                        const char* allegiance = getAllegianceName(dev.player->getAllegiance());
+                        auto led = dev.lightDriver->getLight(LightIdentifier::GLOBAL, 0);
+                        snprintf(buf, sizeof(buf), "[%d] Player %s allegiance=%s led=(%d,%d,%d)",
+                                 static_cast<int>(i), role, allegiance,
+                                 led.color.red, led.color.green, led.color.blue);
+                        output += buf;
+                    } else if (dev.deviceType == DeviceType::FDN) {
+                        const char* gameTypeName = getGameTypeName(dev.gameType);
+                        auto led = dev.lightDriver->getLight(LightIdentifier::GLOBAL, 0);
+                        snprintf(buf, sizeof(buf), "[%d] NPC FDN game=%s led=(%d,%d,%d)",
+                                 static_cast<int>(i), gameTypeName,
+                                 led.color.red, led.color.green, led.color.blue);
+                        output += buf;
+                    } else {
+                        snprintf(buf, sizeof(buf), "[%d] Unknown", static_cast<int>(i));
+                        output += buf;
+                    }
+
+                    if (i < devices.size() - 1) {
+                        output += "\n";
+                    }
+                }
+            }
+
+            result.message = output;
             return result;
         }
 

@@ -44,6 +44,10 @@ using namespace cli;
 class ComprehensiveIntegrationTestSuite : public testing::Test {
 public:
     void SetUp() override {
+        // Ensure clean state - clear any lingering state from previous tests
+        SerialCableBroker::getInstance().disconnectDevice(0);
+        MockHttpServer::getInstance().clearHistory();
+
         player_ = DeviceFactory::createDevice(0, true);
         SimpleTimer::setPlatformClock(player_.clockDriver);
     }
@@ -51,6 +55,9 @@ public:
     void TearDown() override {
         SimpleTimer::setPlatformClock(nullptr);
         DeviceFactory::destroyDevice(player_);
+
+        // Additional cleanup to prevent dangling references
+        SerialCableBroker::getInstance().disconnectDevice(0);
     }
 
     void tick(int n = 1) {

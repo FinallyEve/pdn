@@ -42,6 +42,11 @@ std::vector<std::string> g_npcGames;  // NPC games to spawn (--npc flag)
 std::string g_launchGame;  // Game to launch directly (--game flag)
 bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable flag)
 
+// Panel cycling state
+bool g_panelCyclingActive = false;  // Whether panel cycling is enabled
+int g_panelCyclingIntervalMs = 3000;  // Interval between panel switches
+std::chrono::steady_clock::time_point g_lastPanelSwitch;  // Last panel switch time
+
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
     g_running = false;
@@ -384,6 +389,12 @@ int main(int argc, char** argv) {
             // Handle input (non-blocking)
             int key = cli::Terminal::readKey();
             while (key != static_cast<int>(cli::Key::NONE)) {
+                // Any keypress stops panel cycling
+                if (g_panelCyclingActive) {
+                    g_panelCyclingActive = false;
+                    g_commandResult = "Panel cycling stopped";
+                }
+
                 if (key == static_cast<int>(cli::Key::ARROW_UP)) {
                     if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
                         devices[g_selectedDevice].primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
@@ -424,6 +435,17 @@ int main(int argc, char** argv) {
                     g_commandBuffer += static_cast<char>(key);
                 }
                 key = cli::Terminal::readKey();
+            }
+
+            // Handle panel cycling
+            if (g_panelCyclingActive && !devices.empty()) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastPanelSwitch).count();
+                if (elapsed >= g_panelCyclingIntervalMs) {
+                    g_selectedDevice = (g_selectedDevice + 1) % devices.size();
+                    g_lastPanelSwitch = now;
+                    g_commandResult = "Panel cycled to device " + std::to_string(g_selectedDevice);
+                }
             }
 
             NativePeerBroker::getInstance().deliverPackets();
