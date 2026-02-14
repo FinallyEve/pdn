@@ -2,6 +2,7 @@
 # Demonstrates completing all 7 FDN minigames, collecting all Konami buttons, and unlocking the boon
 # Runtime: ~3 minutes
 # Usage: .pio/build/native_cli/program 1 --script demos/full-progression.demo
+#        (--auto-cable is optional, script explicitly connects cables)
 
 # Wait for player device to settle
 wait 2
@@ -12,6 +13,7 @@ state
 # ========================================
 add npc ghost-runner
 cable 0 1
+cable -l
 wait 4
 
 # Ghost Runner intro (2s)
@@ -37,6 +39,7 @@ konami 0
 # ========================================
 add npc spike-vector
 cable 0 2
+cable -l
 wait 4
 
 # Spike Vector intro (2s)
@@ -64,6 +67,7 @@ konami 0
 # ========================================
 add npc firewall-decrypt
 cable 0 3
+cable -l
 wait 4
 
 # Firewall Decrypt intro (2s)
@@ -96,6 +100,7 @@ konami 0
 # ========================================
 add npc cipher-path
 cable 0 4
+cable -l
 wait 4
 
 # Cipher Path intro (2s)
@@ -124,6 +129,7 @@ konami 0
 # ========================================
 add npc exploit-sequencer
 cable 0 5
+cable -l
 wait 4
 
 # Exploit Sequencer intro (2s)
@@ -150,6 +156,7 @@ konami 0
 # ========================================
 add npc breach-defense
 cable 0 6
+cable -l
 wait 4
 
 # Breach Defense intro (2s)
@@ -176,6 +183,7 @@ konami 0
 # ========================================
 add npc signal-echo
 cable 0 7
+cable -l
 wait 4
 
 # Signal Echo intro (2s)

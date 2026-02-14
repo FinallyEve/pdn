@@ -2,12 +2,19 @@
 # Demonstrates two players engaging in a face-to-face duel
 # Runtime: ~20 seconds
 # Usage: .pio/build/native_cli/program 2 --script demos/duel.demo
+#        (--auto-cable is optional, script explicitly connects cable)
 
 # Wait for devices to settle into Idle
 wait 3
 
 # Check initial states
 state
+
+# Connect cable between devices
+cable 0 1
+
+# Verify connection
+cable -l
 
 # Device 0 (Hunter) initiates duel by long-pressing primary button
 l 0

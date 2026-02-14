@@ -1,13 +1,20 @@
 # FDN Quickstart Demo
 # Demonstrates player encountering NPC, playing Signal Echo, winning, and unlocking Konami button
 # Runtime: ~30 seconds
-# Usage: .pio/build/native_cli/program --npc signal-echo --auto-cable --script demos/fdn-quickstart.demo
+# Usage: .pio/build/native_cli/program --npc signal-echo --script demos/fdn-quickstart.demo
+#        (--auto-cable is optional, script explicitly connects cable)
 
 # Wait for devices to settle into Idle
 wait 3
 
 # Check initial states
 state
+
+# Connect cable between player (device 0) and NPC (device 1)
+cable 0 1
+
+# Verify connection
+cable -l
 
 # NPC broadcasts FDN signal automatically - wait for detection
 wait 2

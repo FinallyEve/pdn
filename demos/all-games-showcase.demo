@@ -2,6 +2,7 @@
 # Demonstrates each of the 7 minigames played in standalone mode
 # Runtime: ~2 minutes
 # Usage: .pio/build/native_cli/program 1 --script demos/all-games-showcase.demo
+#        (No cable connections needed - standalone challenge mode)
 
 # ========================================
 # GAME 1: Ghost Runner
