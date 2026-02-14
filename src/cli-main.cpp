@@ -33,6 +33,9 @@ static constexpr int MAX_DEVICES = 8;
 // Global running flag for signal handling
 std::atomic<bool> g_running{true};
 
+// Global flag for terminal resize detection
+static volatile sig_atomic_t g_terminalResized = 0;
+
 // Command input state
 std::string g_commandBuffer;
 std::string g_commandResult;
@@ -45,6 +48,11 @@ bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
     g_running = false;
+}
+
+void sigwinchHandler(int signal) {
+    (void)signal;  // Suppress unused parameter warning
+    g_terminalResized = 1;
 }
 
 /**
@@ -371,6 +379,13 @@ int main(int argc, char** argv) {
         // Interactive mode
         #ifndef _WIN32
         struct termios oldTermios = cli::Terminal::enableRawMode();
+
+        // Register SIGWINCH handler for terminal resize
+        struct sigaction sa;
+        sa.sa_handler = sigwinchHandler;
+        sa.sa_flags = SA_RESTART;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGWINCH, &sa, nullptr);
         #endif
 
         cli::Terminal::clearScreen();
@@ -381,6 +396,13 @@ int main(int argc, char** argv) {
 
         // Main loop
         while (g_running) {
+            // Check for terminal resize
+            if (g_terminalResized) {
+                g_terminalResized = 0;
+                renderer.clearScreen();
+                cli::printHeader();
+                renderer.forceRedraw();
+            }
             // Handle input (non-blocking)
             int key = cli::Terminal::readKey();
             while (key != static_cast<int>(cli::Key::NONE)) {

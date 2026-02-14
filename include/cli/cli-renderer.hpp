@@ -22,7 +22,7 @@ class Renderer {
 public:
     // Status display starting row (after 12-line header + 1 blank line)
     static constexpr int STATUS_START_ROW = 14;
-    
+
     Renderer() = default;
 
     void setDisplayMirror(bool enabled) { displayMirrorEnabled_ = enabled; }
@@ -32,6 +32,22 @@ public:
     void setCaptions(bool enabled) { captionsEnabled_ = enabled; }
     void toggleCaptions() { captionsEnabled_ = !captionsEnabled_; }
     bool isCaptionsEnabled() const { return captionsEnabled_; }
+
+    /**
+     * Force a full screen redraw (invalidates previous frame cache).
+     * Used when terminal is resized or needs complete refresh.
+     */
+    void forceRedraw() {
+        previousFrame_.clear();
+        cachedTermHeight_ = -1;  // Force re-query of terminal dimensions
+    }
+
+    /**
+     * Clear the entire screen and reset cursor.
+     */
+    void clearScreen() {
+        Terminal::clearScreen();
+    }
 
     /**
      * Render the full UI for all devices, command result, and prompt.
@@ -99,6 +115,7 @@ private:
     bool captionsEnabled_ = true;
     std::vector<std::string> previousFrame_;
     std::vector<std::string> currentFrame_;
+    int cachedTermHeight_ = -1;  // Cached terminal height
     
     /**
      * Add a line to the current frame buffer.
@@ -111,13 +128,26 @@ private:
      * Get terminal height to prevent cursor positioning past the screen edge.
      * Writing past the terminal height causes scrolling that corrupts
      * all subsequent absolute cursor positions.
+     * Caches the result to avoid repeated ioctl calls.
      */
-    static int getTerminalHeight() {
-        struct winsize ws;
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
-            return static_cast<int>(ws.ws_row);
+    int getTerminalHeight() {
+        if (cachedTermHeight_ < 0) {
+            struct winsize ws;
+            if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
+                cachedTermHeight_ = static_cast<int>(ws.ws_row);
+            } else {
+                cachedTermHeight_ = 50;
+            }
         }
-        return 50;
+        return cachedTermHeight_;
+    }
+
+    /**
+     * Check if compact mode should be enabled based on terminal height.
+     * Compact mode is used when terminal is too small for full panel rendering.
+     */
+    bool shouldUseCompactMode() const {
+        return cachedTermHeight_ > 0 && cachedTermHeight_ < 40;
     }
 
     /**
@@ -202,15 +232,127 @@ private:
     }
     
     /**
+     * Render a device panel in compact mode (for small terminals).
+     * Reduces verbosity to fit within limited vertical space.
+     */
+    void renderDevicePanelCompact(DeviceInstance& device, bool isSelected, int stateId) {
+        // Build state history string (compact)
+        std::string historyStr;
+        if (!device.stateHistory.empty()) {
+            // Show only last 2 states
+            size_t start = device.stateHistory.size() > 2 ? device.stateHistory.size() - 2 : 0;
+            for (size_t i = start; i < device.stateHistory.size(); i++) {
+                if (i > start) historyStr += "->";
+                historyStr += getStateName(device.stateHistory[i]);
+            }
+        } else {
+            historyStr = "(none)";
+        }
+
+        // Build compact serial history (only last message)
+        std::string serialOutStr = "(none)";
+        const auto& outSent = device.serialOutDriver->getSentHistory();
+        if (!outSent.empty()) {
+            serialOutStr = truncate(outSent.back(), 20);
+        }
+
+        std::string serialInStr = "(none)";
+        const auto& inSent = device.serialInDriver->getSentHistory();
+        if (!inSent.empty()) {
+            serialInStr = truncate(inSent.back(), 20);
+        }
+
+        // Build compact LED string (no detailed RGB)
+        std::string ledStr = "L[";
+        for (int i = 8; i >= 0; i--) {
+            ledStr += renderLEDStr(device.lightDriver->getLeftLights()[i]);
+        }
+        ledStr += "]T[";
+        ledStr += renderLEDStr(device.lightDriver->getTransmitLight());
+        ledStr += "]R[";
+        for (int i = 8; i >= 0; i--) {
+            ledStr += renderLEDStr(device.lightDriver->getRightLights()[i]);
+        }
+        ledStr += "]";
+
+        // Build display content (compact - no mirror in compact mode)
+        std::string displayStr;
+        const auto& textHistory = device.displayDriver->getTextHistory();
+        if (!textHistory.empty()) {
+            displayStr = truncate(textHistory[0], 30);
+        } else {
+            displayStr = "(blank)";
+        }
+
+        // Build ESP-NOW packet history (compact - only last TX/RX)
+        std::string espNowStr = "(none)";
+        const auto& pktHistory = device.peerCommsDriver->getPacketHistory();
+        if (!pktHistory.empty()) {
+            const auto& lastPkt = pktHistory.back();
+            espNowStr = getPacketTypeName(lastPkt.packetType);
+            espNowStr += lastPkt.isSent ? "->" : "<-";
+            espNowStr += truncate(lastPkt.isSent ? lastPkt.dstMac : lastPkt.srcMac, 8);
+        }
+
+        // Get serial connection info (compact)
+        std::string connLabel;
+        const auto& connections = SerialCableBroker::getInstance().getConnections();
+        for (const auto& conn : connections) {
+            if (conn.deviceA == device.deviceIndex || conn.deviceB == device.deviceIndex) {
+                bool isDeviceA = (conn.deviceA == device.deviceIndex);
+                int otherDevice = isDeviceA ? conn.deviceB : conn.deviceA;
+                connLabel = format("<->Dev%d", otherDevice);
+                break;
+            }
+        }
+
+        // Render compact panel
+        const char* headerColor = isSelected ? "\033[1;33m" : "\033[33m";
+        const char* selectedMarker = isSelected ? " *" : "";
+        bufferLine(format("%s+-- [%s] %-6s%s ----------------------+\033[0m",
+                   headerColor,
+                   device.deviceId.c_str(),
+                   device.isHunter ? "HUNTER" : "BOUNTY",
+                   selectedMarker));
+
+        bufferLine(format("| State:[%2d]%-20s W=%d L=%d",
+                   stateId, getStateName(stateId),
+                   device.player->getWins(),
+                   device.player->getLosses()));
+
+        bufferLine(format("| Hist: %s", historyStr.c_str()));
+
+        bufferLine(format("| Display: %s", displayStr.c_str()));
+
+        bufferLine(format("| LEDs: %s", ledStr.c_str()));
+
+        bufferLine(format("| Serial: %s  Out:%s In:%s",
+                   connLabel.c_str(),
+                   serialOutStr.c_str(),
+                   serialInStr.c_str()));
+
+        bufferLine(format("| ESP-NOW: %s", espNowStr.c_str()));
+
+        bufferLine(format("%s+----------------------------------------+\033[0m", headerColor));
+    }
+
+    /**
      * Render a single device panel into the frame buffer.
      * @param isSelected Whether this device is currently selected (affects header color)
      */
     void renderDevicePanel(DeviceInstance& device, bool isSelected = false) {
         State* currentState = device.game->getCurrentState();
         int stateId = currentState ? currentState->getStateId() : -1;
-        
+
         // Update state history
         device.updateStateHistory(stateId);
+
+        // Check if compact mode is needed
+        bool compactMode = shouldUseCompactMode();
+        if (compactMode) {
+            renderDevicePanelCompact(device, isSelected, stateId);
+            return;
+        }
         
         // Build state history string
         std::string historyStr;
