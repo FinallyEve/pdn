@@ -42,9 +42,110 @@ std::vector<std::string> g_npcGames;  // NPC games to spawn (--npc flag)
 std::string g_launchGame;  // Game to launch directly (--game flag)
 bool g_autoCable = false;  // Auto-cable first player to first NPC (--auto-cable flag)
 
+// Replay tracking per device
+struct DeviceReplayState {
+    bool inMinigame = false;
+    int lastStateId = -1;
+    uint32_t gameStartTimeMs = 0;
+    std::string gameName;
+    std::string difficulty;
+};
+std::vector<DeviceReplayState> g_replayStates;
+
 void signalHandler(int signal) {
     (void)signal;  // Suppress unused parameter warning
     g_running = false;
+}
+
+/**
+ * Check if a state ID corresponds to a minigame intro state.
+ * Intro states: 100, 200, 300, 400, 500, 600, 700 (for the 7 minigames)
+ */
+bool isMinigameIntroState(int stateId) {
+    return (stateId == 100 ||  // Signal Echo
+            stateId == 200 ||  // Firewall Decrypt
+            stateId == 300 ||  // Ghost Runner
+            stateId == 400 ||  // Spike Vector
+            stateId == 500 ||  // Cipher Path
+            stateId == 600 ||  // Exploit Sequencer
+            stateId == 700);   // Breach Defense
+}
+
+/**
+ * Get game name from state ID base (100 = Signal Echo, 200 = Firewall Decrypt, etc.)
+ */
+std::string getGameNameFromStateId(int stateId) {
+    int base = (stateId / 100) * 100;
+    switch (base) {
+        case 100: return "Signal Echo";
+        case 200: return "Firewall Decrypt";
+        case 300: return "Ghost Runner";
+        case 400: return "Spike Vector";
+        case 500: return "Cipher Path";
+        case 600: return "Exploit Sequencer";
+        case 700: return "Breach Defense";
+        default: return "Unknown";
+    }
+}
+
+/**
+ * Check if a device is currently in a minigame (state ID in range [100-799])
+ */
+bool isInMinigame(int stateId) {
+    return stateId >= 100 && stateId < 800;
+}
+
+/**
+ * Update replay tracking for a device.
+ * Detects game start, tracks inputs, and finishes recording on game end.
+ */
+void updateReplayTracking(cli::DeviceInstance& device,
+                          DeviceReplayState& replayState,
+                          cli::ReplayManager& replayMgr,
+                          NativeClockDriver* globalClock) {
+    if (!device.game) return;
+
+    State* currentState = device.game->getCurrentState();
+    if (!currentState) return;
+
+    int stateId = currentState->getStateId();
+
+    // Detect minigame start (transition to intro state)
+    if (isMinigameIntroState(stateId) && !replayState.inMinigame) {
+        replayState.inMinigame = true;
+        replayState.lastStateId = stateId;
+        replayState.gameStartTimeMs = globalClock->milliseconds();
+        replayState.gameName = getGameNameFromStateId(stateId);
+
+        // Try to detect difficulty from game config (for now, default to "easy")
+        replayState.difficulty = "easy";  // TODO: detect from game config if available
+
+        // Start recording
+        replayMgr.startRecording(replayState.gameName, replayState.difficulty, 0);
+    }
+    // Detect minigame end (transition out of minigame state range)
+    else if (replayState.inMinigame && !isInMinigame(stateId)) {
+        // Game ended - check outcome
+        if (device.game && replayMgr.isRecording()) {
+            MiniGame* minigame = dynamic_cast<MiniGame*>(device.game);
+            if (minigame && minigame->isGameComplete()) {
+                const MiniGameOutcome& outcome = minigame->getOutcome();
+                bool won = (outcome.result == MiniGameResult::WON);
+                uint32_t durationMs = globalClock->milliseconds() - replayState.gameStartTimeMs;
+                replayMgr.finishRecording(won, durationMs);
+            } else {
+                // No outcome available, cancel recording
+                replayMgr.cancelRecording();
+            }
+        }
+
+        replayState.inMinigame = false;
+        replayState.lastStateId = stateId;
+    }
+    // Track state changes within minigame
+    else if (replayState.inMinigame && stateId != replayState.lastStateId) {
+        replayState.lastStateId = stateId;
+    }
 }
 
 /**
@@ -256,7 +357,8 @@ std::vector<cli::DeviceInstance> createDevices(int count) {
 void runScript(const std::string& path,
                std::vector<cli::DeviceInstance>& devices,
                cli::CommandProcessor& proc,
-               cli::Renderer& renderer) {
+               cli::Renderer& renderer,
+               NativeClockDriver* globalClock) {
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cerr << "Error: Cannot open script file: " << path << std::endl;
@@ -264,6 +366,8 @@ void runScript(const std::string& path,
     }
 
     std::cout << "--- Running script: " << path << " ---" << std::endl;
+
+    auto& replayMgr = proc.getReplayManager();
 
     std::string line;
     while (std::getline(file, line) && g_running) {
@@ -285,7 +389,13 @@ void runScript(const std::string& path,
             while (std::chrono::steady_clock::now() < end && g_running) {
                 NativePeerBroker::getInstance().deliverPackets();
                 cli::SerialCableBroker::getInstance().transferData();
-                for (auto& d : devices) d.pdn->loop();
+
+                // Update devices and track replay state
+                for (size_t i = 0; i < devices.size(); i++) {
+                    devices[i].pdn->loop();
+                    updateReplayTracking(devices[i], g_replayStates[i], replayMgr, globalClock);
+                }
+
                 std::this_thread::sleep_for(std::chrono::milliseconds(33));
             }
             continue;
@@ -314,7 +424,17 @@ void runScript(const std::string& path,
         // One frame tick between commands
         NativePeerBroker::getInstance().deliverPackets();
         cli::SerialCableBroker::getInstance().transferData();
-        for (auto& d : devices) d.pdn->loop();
+
+        // Update devices and track replay state
+        // Ensure g_replayStates is sized correctly
+        while (g_replayStates.size() < devices.size()) {
+            g_replayStates.push_back(DeviceReplayState{});
+        }
+
+        for (size_t i = 0; i < devices.size(); i++) {
+            devices[i].pdn->loop();
+            updateReplayTracking(devices[i], g_replayStates[i], replayMgr, globalClock);
+        }
     }
 
     std::cout << "--- Script complete ---" << std::endl;
@@ -360,13 +480,16 @@ int main(int argc, char** argv) {
     // Create devices
     std::vector<cli::DeviceInstance> devices = createDevices(deviceCount);
 
+    // Initialize replay tracking for each device
+    g_replayStates.resize(devices.size());
+
     // Create CLI components
     cli::Renderer renderer;
     cli::CommandProcessor commandProcessor;
 
     if (!g_scriptFile.empty()) {
         // Script mode — no raw terminal, no TUI
-        runScript(g_scriptFile, devices, commandProcessor, renderer);
+        runScript(g_scriptFile, devices, commandProcessor, renderer, globalClock);
     } else {
         // Interactive mode
         #ifndef _WIN32
@@ -379,20 +502,74 @@ int main(int argc, char** argv) {
 
         g_commandResult = "Ready! Use LEFT/RIGHT to select device, UP/DOWN for buttons. Type 'help' for commands.";
 
+        // Playback state
+        uint32_t playbackStartTimeMs = 0;
+
         // Main loop
         while (g_running) {
+            // Handle playback input injection
+            auto& replayMgr = commandProcessor.getReplayManager();
+            if (replayMgr.isPlaying()) {
+                if (playbackStartTimeMs == 0) {
+                    playbackStartTimeMs = globalClock->milliseconds();
+                }
+
+                uint32_t playbackTimeMs = globalClock->milliseconds() - playbackStartTimeMs;
+                std::string nextInput = replayMgr.getNextInput(playbackTimeMs);
+
+                if (!nextInput.empty() && g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
+                    // Inject the recorded input
+                    if (nextInput == "b1_click") {
+                        devices[g_selectedDevice].primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+                    } else if (nextInput == "b1_long") {
+                        devices[g_selectedDevice].primaryButtonDriver->execCallback(ButtonInteraction::LONG_PRESS);
+                    } else if (nextInput == "b2_click") {
+                        devices[g_selectedDevice].secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+                    } else if (nextInput == "b2_long") {
+                        devices[g_selectedDevice].secondaryButtonDriver->execCallback(ButtonInteraction::LONG_PRESS);
+                    }
+                }
+
+                // Check if playback ended
+                if (!replayMgr.isPlaying()) {
+                    playbackStartTimeMs = 0;
+                    g_commandResult = "Replay finished.";
+                }
+            }
+
             // Handle input (non-blocking)
             int key = cli::Terminal::readKey();
             while (key != static_cast<int>(cli::Key::NONE)) {
+                // Stop playback if user presses any key
+                if (replayMgr.isPlaying()) {
+                    replayMgr.stopPlayback();
+                    playbackStartTimeMs = 0;
+                    g_commandResult = "Replay stopped by user.";
+                    key = cli::Terminal::readKey();
+                    continue;
+                }
+
                 if (key == static_cast<int>(cli::Key::ARROW_UP)) {
                     if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
                         devices[g_selectedDevice].primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
                         g_commandResult = "Button1 click on " + devices[g_selectedDevice].deviceId;
+
+                        // Record input if in minigame
+                        if (g_replayStates[g_selectedDevice].inMinigame) {
+                            uint32_t gameTimeMs = globalClock->milliseconds() - g_replayStates[g_selectedDevice].gameStartTimeMs;
+                            replayMgr.recordInput("b1_click", gameTimeMs);
+                        }
                     }
                 } else if (key == static_cast<int>(cli::Key::ARROW_DOWN)) {
                     if (g_selectedDevice >= 0 && g_selectedDevice < static_cast<int>(devices.size())) {
                         devices[g_selectedDevice].secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
                         g_commandResult = "Button2 click on " + devices[g_selectedDevice].deviceId;
+
+                        // Record input if in minigame
+                        if (g_replayStates[g_selectedDevice].inMinigame) {
+                            uint32_t gameTimeMs = globalClock->milliseconds() - g_replayStates[g_selectedDevice].gameStartTimeMs;
+                            replayMgr.recordInput("b2_click", gameTimeMs);
+                        }
                     }
                 } else if (key == static_cast<int>(cli::Key::ARROW_LEFT)) {
                     if (g_selectedDevice > 0) {
@@ -428,8 +605,32 @@ int main(int argc, char** argv) {
 
             NativePeerBroker::getInstance().deliverPackets();
             cli::SerialCableBroker::getInstance().transferData();
-            for (auto& device : devices) {
-                device.pdn->loop();
+
+            // Update devices and track replay state
+            // Ensure g_replayStates is sized correctly
+            while (g_replayStates.size() < devices.size()) {
+                g_replayStates.push_back(DeviceReplayState{});
+            }
+
+            for (size_t i = 0; i < devices.size(); i++) {
+                devices[i].pdn->loop();
+                updateReplayTracking(devices[i], g_replayStates[i], replayMgr, globalClock);
+            }
+
+            // Update command result if replaying
+            if (replayMgr.isPlaying()) {
+                const cli::ReplayRecord* replay = replayMgr.getCurrentReplay();
+                if (replay) {
+                    uint32_t playbackTimeMs = globalClock->milliseconds() - playbackStartTimeMs;
+                    float playbackSec = playbackTimeMs / 1000.0f;
+                    char buf[128];
+                    snprintf(buf, sizeof(buf), "▶ REPLAY #%u — %s (%s) — %.1fs",
+                             replay->replayId,
+                             replay->gameName.c_str(),
+                             replay->difficulty.c_str(),
+                             playbackSec);
+                    g_commandResult = buf;
+                }
             }
 
             renderer.renderUI(devices, g_commandResult, g_commandBuffer, g_selectedDevice);

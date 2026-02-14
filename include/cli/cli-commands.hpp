@@ -9,6 +9,7 @@
 #include "cli/cli-device.hpp"
 #include "cli/cli-renderer.hpp"
 #include "cli/cli-serial-broker.hpp"
+#include "cli/cli-replay.hpp"
 #include "device/drivers/native/native-peer-broker.hpp"
 #include "game/quickdraw.hpp"
 #include "game/progress-manager.hpp"
@@ -30,6 +31,8 @@ struct CommandResult {
 class CommandProcessor {
 public:
     CommandProcessor() = default;
+
+    ReplayManager& getReplayManager() { return replayManager; }
     
     /**
      * Parse and execute a command string.
@@ -130,6 +133,9 @@ public:
         if (command == "debug") {
             return cmdDebug(tokens, devices, selectedDevice, renderer);
         }
+        if (command == "replay" || command == "r") {
+            return cmdReplay(tokens, devices, selectedDevice);
+        }
 
         result.message = "Unknown command: " + command + " (try 'help')";
         return result;
@@ -137,16 +143,16 @@ public:
 
 private:
     // ==================== COMMAND HANDLERS ====================
-    
+
     static CommandResult cmdHelp(const std::vector<std::string>& /*tokens*/) {
         CommandResult result;
-        result.message = "Keys: LEFT/RIGHT=select, UP/DOWN=buttons | Cmds: help, quit, list, select, add, b/l, b2/l2, cable, peer, display, mirror, captions, reboot, role, games, stats, progress, colors, demo";
+        result.message = "Keys: LEFT/RIGHT=select, UP/DOWN=buttons | Cmds: help, quit, list, select, add, b/l, b2/l2, cable, peer, display, mirror, captions, reboot, role, games, stats, progress, colors, demo, replay";
         return result;
     }
     
     static CommandResult cmdHelp2(const std::vector<std::string>& /*tokens*/) {
         CommandResult result;
-        result.message = "add [hunter|bounty|npc <game>|challenge <game>] - add device | cable <a> <b> - connect | peer <src> <dst> <type> - send packet | reboot [dev] - restart device | games - list games | stats [dev] - player stats | progress [dev] - Konami grid | colors [dev] - color profiles | demo [game] [easy|hard] - play demo mode";
+        result.message = "add [hunter|bounty|npc <game>|challenge <game>] - add device | cable <a> <b> - connect | peer <src> <dst> <type> - send packet | reboot [dev] - restart device | games - list games | stats [dev] - player stats | progress [dev] - Konami grid | colors [dev] - color profiles | demo [game] [easy|hard] - play demo mode | replay [list|<id>|last|clear] - manage replays";
         return result;
     }
     
@@ -1298,6 +1304,106 @@ private:
         return result;
     }
 
+    CommandResult cmdReplay(const std::vector<std::string>& tokens,
+                            std::vector<DeviceInstance>& devices,
+                            int selectedDevice) {
+        CommandResult result;
+
+        // Default: show list
+        if (tokens.size() < 2 || tokens[1] == "list") {
+            return cmdReplayList();
+        }
+
+        std::string subcommand = tokens[1];
+        for (char& c : subcommand) {
+            if (c >= 'A' && c <= 'Z') c += 32;  // to lowercase
+        }
+
+        if (subcommand == "clear") {
+            replayManager.clearReplays();
+            result.message = "Replays cleared.";
+            return result;
+        }
+
+        if (subcommand == "last") {
+            uint32_t lastId = replayManager.getLastReplayId();
+            if (lastId == 0) {
+                result.message = "No replays available.";
+                return result;
+            }
+            // Fall through to start playback
+            subcommand = std::to_string(lastId);
+        }
+
+        // Try to parse as replay ID
+        int replayId = std::atoi(subcommand.c_str());
+        if (replayId > 0) {
+            if (replayManager.startPlayback(static_cast<uint32_t>(replayId))) {
+                const ReplayRecord* replay = replayManager.getReplay(static_cast<uint32_t>(replayId));
+                if (replay) {
+                    char buf[128];
+                    snprintf(buf, sizeof(buf), "Starting replay #%u: %s (%s) - %s",
+                             replay->replayId,
+                             replay->gameName.c_str(),
+                             replay->difficulty.c_str(),
+                             replay->playerWon ? "WIN" : "LOSS");
+                    result.message = buf;
+                } else {
+                    result.message = "Started replay #" + std::to_string(replayId);
+                }
+            } else {
+                result.message = "Replay #" + std::to_string(replayId) + " not found. Use 'replay list' to see available replays.";
+            }
+            return result;
+        }
+
+        result.message = "Usage: replay [list|<id>|last|clear]";
+        return result;
+    }
+
+    CommandResult cmdReplayList() {
+        CommandResult result;
+
+        auto replays = replayManager.listReplays();
+        if (replays.empty()) {
+            result.message = "No replays recorded yet. Play some minigames to record replays!";
+            return result;
+        }
+
+        char buf[1024];
+        int written = snprintf(buf, sizeof(buf), "Recent Replays (%zu/%d):\n",
+                               replays.size(), ReplayManager::MAX_REPLAYS);
+
+        for (const auto& replay : replays) {
+            // Format: #5  Signal Echo (Hard)   WIN   4.2s   2 min ago
+            const char* outcome = replay.playerWon ? "WIN " : "LOSS";
+            float durationSec = replay.durationMs / 1000.0f;
+
+            // Simple timestamp formatting (just show duration in seconds)
+            int remaining = sizeof(buf) - written;
+            if (remaining > 0) {
+                int line = snprintf(buf + written, remaining,
+                                    "  #%-3u %-20s %-6s %s %.1fs (%zu inputs)\n",
+                                    replay.replayId,
+                                    (replay.gameName + " (" + replay.difficulty + ")").c_str(),
+                                    outcome,
+                                    "  ",
+                                    durationSec,
+                                    replay.events.size());
+                if (line > 0) written += line;
+            }
+        }
+
+        // Add usage hint
+        int remaining = sizeof(buf) - written;
+        if (remaining > 0) {
+            snprintf(buf + written, remaining, "\nUse: replay <id> to watch a replay");
+        }
+
+        result.message = buf;
+        return result;
+    }
+
     // ==================== UTILITY FUNCTIONS ====================
     
     /**
@@ -1364,6 +1470,9 @@ private:
         }
         return data;
     }
+
+private:
+    ReplayManager replayManager;
 };
 
 } // namespace cli
