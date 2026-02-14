@@ -2,6 +2,7 @@
 #include "game/quickdraw.hpp"
 #include "game/minigame.hpp"
 #include "game/progress-manager.hpp"
+#include "game/difficulty-scaler.hpp"
 #include "game/ui-clean-minimal.hpp"
 #include "device/drivers/logger.hpp"
 #include "device/device-types.hpp"
@@ -10,11 +11,12 @@
 
 static const char* TAG = "FdnComplete";
 
-FdnComplete::FdnComplete(Player* player, ProgressManager* progressManager, FdnResultManager* fdnResultManager) :
+FdnComplete::FdnComplete(Player* player, ProgressManager* progressManager, FdnResultManager* fdnResultManager, DifficultyScaler* scaler) :
     State(FDN_COMPLETE),
     player(player),
     progressManager(progressManager),
-    fdnResultManager(fdnResultManager)
+    fdnResultManager(fdnResultManager),
+    scaler(scaler)
 {
 }
 
@@ -22,6 +24,7 @@ FdnComplete::~FdnComplete() {
     player = nullptr;
     progressManager = nullptr;
     fdnResultManager = nullptr;
+    scaler = nullptr;
 }
 
 void FdnComplete::onStateMounted(Device* PDN) {
@@ -44,21 +47,30 @@ void FdnComplete::onStateMounted(Device* PDN) {
     }
 
     const MiniGameOutcome& outcome = game->getOutcome();
+    GameType gameType = static_cast<GameType>(lastGameType);
+    bool won = (outcome.result == MiniGameResult::WON);
 
     LOG_I(TAG, "Result: %s, Score: %d",
-           outcome.result == MiniGameResult::WON ? "WON" : "LOST",
+           won ? "WON" : "LOST",
            outcome.score);
+
+    // Record result for difficulty scaling (uses a fixed completion time estimate)
+    // TODO: track actual completion time in MiniGameOutcome
+    if (scaler) {
+        uint32_t estimatedTime = 30000;  // 30 seconds default
+        scaler->recordResult(gameType, won, estimatedTime);
+        float newScale = scaler->getScaledDifficulty(gameType);
+        std::string label = scaler->getDifficultyLabel(gameType);
+        LOG_I(TAG, "Difficulty scale updated: %.2f (%s)", newScale, label.c_str());
+    }
 
     // Cache the result for upload
     if (fdnResultManager) {
-        GameType gameType = static_cast<GameType>(lastGameType);
-        bool won = (outcome.result == MiniGameResult::WON);
         fdnResultManager->cacheResult(gameType, won, outcome.score, outcome.hardMode);
         LOG_I(TAG, "Cached FDN result: game=%d won=%d score=%d hardMode=%d",
               lastGameType, won, outcome.score, outcome.hardMode);
     }
 
-    GameType gameType = static_cast<GameType>(lastGameType);
     bool recreational = player->isRecreationalMode();
 
     if (outcome.result == MiniGameResult::WON) {
