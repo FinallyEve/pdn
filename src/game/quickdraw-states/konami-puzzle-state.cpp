@@ -136,7 +136,9 @@ bool KonamiPuzzle::transitionToIdle() {
 }
 
 void KonamiPuzzle::buildTargetSequence() {
-    // The classic Konami Code: UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A START
+    // DEPRECATED: KonamiPuzzle is superseded by KonamiCodeEntry in KonamiMetaGame.
+    // Updated to canonical 13-button sequence for backwards compatibility.
+    // UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A B A START
     targetSequence = {
         KonamiButton::UP,
         KonamiButton::UP,
@@ -146,6 +148,8 @@ void KonamiPuzzle::buildTargetSequence() {
         KonamiButton::RIGHT,
         KonamiButton::LEFT,
         KonamiButton::RIGHT,
+        KonamiButton::B,
+        KonamiButton::A,
         KonamiButton::B,
         KonamiButton::A,
         KonamiButton::START

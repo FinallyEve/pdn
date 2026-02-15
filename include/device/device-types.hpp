@@ -103,7 +103,7 @@ inline int getAppIdForGame(GameType type) {
 inline bool isFdnDeviceCode(const std::string& code) {
     return code == "7001" || code == "7002" || code == "7003" ||
            code == "7004" || code == "7005" || code == "7006" ||
-           code == "7007";
+           code == "7007" || code == "7008";
 }
 
 /*

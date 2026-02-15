@@ -1,5 +1,6 @@
 #include "game/quickdraw-states.hpp"
 #include "game/quickdraw.hpp"
+#include "game/konami-metagame/konami-metagame.hpp"
 #include "game/signal-echo/signal-echo.hpp"
 #include "game/signal-echo/signal-echo-resources.hpp"
 #include "game/firewall-decrypt/firewall-decrypt.hpp"
@@ -95,10 +96,11 @@ void FdnDetected::onStateLoop(Device* PDN) {
         player->setLastFdnGameType(static_cast<int>(pendingGameType));
         player->setLastFdnReward(static_cast<uint8_t>(pendingReward));
 
-        // Check if player has all 7 Konami buttons -- route to Konami Puzzle
+        // Check if player has all 7 Konami buttons -- route to KonamiMetaGame
         if (player->hasAllKonamiButtons()) {
-            LOG_I(TAG, "All 7 buttons collected - routing to Konami Puzzle!");
-            transitionToKonamiPuzzleState = true;
+            LOG_I(TAG, "All 7 buttons collected - routing to KonamiMetaGame!");
+            // lastFdnGameType is already set above — KonamiHandshake reads it from Player
+            PDN->setActiveApp(StateId(KONAMI_METAGAME_APP_ID));
             return;
         }
 

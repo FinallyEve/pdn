@@ -225,9 +225,8 @@ void KonamiFdnDisplay::renderFullReveal(Device* PDN) {
 bool KonamiFdnDisplay::isPositionUnlocked(int position) const {
     // Check each button mapping to see if this position is unlocked
     for (const auto& mapping : BUTTON_MAPPINGS) {
-        // Check if player has beaten this game (stub — needs ProgressManager integration)
-        // For now, return false to show cycling symbols
-        bool hasButton = false;  // TODO: Check player->hasKonamiButton(mapping.gameType)
+        KonamiButton reward = getRewardForGame(mapping.gameType);
+        bool hasButton = player->hasUnlockedButton(static_cast<uint8_t>(reward));
 
         if (hasButton) {
             for (int i = 0; i < mapping.positionCount; i++) {
@@ -244,14 +243,12 @@ bool KonamiFdnDisplay::isPositionUnlocked(int position) const {
 int KonamiFdnDisplay::getUnlockedButtonCount() const {
     int count = 0;
 
-    // Count how many of the 7 games the player has beaten
-    // This is a stub — needs ProgressManager integration
-    // For now, return 0 to show idle mode
-
-    // TODO: Integrate with ProgressManager to check:
-    // - progressManager->hasBeatenGame(GameType::SIGNAL_ECHO)
-    // - progressManager->hasBeatenGame(GameType::GHOST_RUNNER)
-    // - etc. for all 7 games
+    // Count how many of the 7 Konami buttons the player has unlocked
+    for (uint8_t i = 0; i < 7; i++) {
+        if (player->hasUnlockedButton(i)) {
+            count++;
+        }
+    }
 
     return count;
 }

@@ -504,6 +504,86 @@ public:
     }
 
     /**
+     * Create a KONAMI_CODE FDN device — the 8th FDN node.
+     * Unlike regular FDN devices, this FDN has game type KONAMI_CODE (7)
+     * and doesn't correspond to a specific minigame.
+     *
+     * @param deviceIndex Index for this device
+     * @return Fully initialized DeviceInstance running FdnGame with KONAMI_CODE type
+     */
+    static DeviceInstance createKonamiFdnDevice(int deviceIndex) {
+        DeviceInstance instance;
+        instance.deviceIndex = deviceIndex;
+        instance.isHunter = true;  // FDN uses output jack as primary
+        instance.deviceType = DeviceType::FDN;
+        instance.gameType = GameType::QUICKDRAW;  // No minigame — use QUICKDRAW as placeholder
+
+        // Generate device ID: 7010, 7011, etc. (7xxx range for FDNs)
+        char idBuffer[5];
+        snprintf(idBuffer, sizeof(idBuffer), "7%03d", 10 + deviceIndex);
+        instance.deviceId = idBuffer;
+
+        // Create all drivers with device-specific suffix
+        std::string suffix = "_" + std::to_string(deviceIndex);
+
+        instance.loggerDriver = new NativeLoggerDriver(LOGGER_DRIVER_NAME + suffix);
+        instance.loggerDriver->setSuppressOutput(true);
+        instance.clockDriver = new NativeClockDriver(PLATFORM_CLOCK_DRIVER_NAME + suffix);
+        instance.displayDriver = new NativeDisplayDriver(DISPLAY_DRIVER_NAME + suffix);
+        instance.primaryButtonDriver = new NativeButtonDriver(PRIMARY_BUTTON_DRIVER_NAME + suffix, 0);
+        instance.secondaryButtonDriver = new NativeButtonDriver(SECONDARY_BUTTON_DRIVER_NAME + suffix, 1);
+        instance.lightDriver = new NativeLightStripDriver(LIGHT_DRIVER_NAME + suffix);
+        instance.hapticsDriver = new NativeHapticsDriver(HAPTICS_DRIVER_NAME + suffix, 0);
+        instance.serialOutDriver = new NativeSerialDriver(SERIAL_OUT_DRIVER_NAME + suffix);
+        instance.serialInDriver = new NativeSerialDriver(SERIAL_IN_DRIVER_NAME + suffix);
+        instance.httpClientDriver = new NativeHttpClientDriver(HTTP_CLIENT_DRIVER_NAME + suffix);
+        instance.httpClientDriver->setMockServerEnabled(true);
+        instance.httpClientDriver->setConnected(true);
+        instance.peerCommsDriver = new NativePeerCommsDriver(PEER_COMMS_DRIVER_NAME + suffix);
+        instance.storageDriver = new NativePrefsDriver(STORAGE_DRIVER_NAME + suffix);
+
+        DriverConfig pdnConfig = {
+            {DISPLAY_DRIVER_NAME, instance.displayDriver},
+            {PRIMARY_BUTTON_DRIVER_NAME, instance.primaryButtonDriver},
+            {SECONDARY_BUTTON_DRIVER_NAME, instance.secondaryButtonDriver},
+            {LIGHT_DRIVER_NAME, instance.lightDriver},
+            {HAPTICS_DRIVER_NAME, instance.hapticsDriver},
+            {SERIAL_OUT_DRIVER_NAME, instance.serialOutDriver},
+            {SERIAL_IN_DRIVER_NAME, instance.serialInDriver},
+            {HTTP_CLIENT_DRIVER_NAME, instance.httpClientDriver},
+            {PEER_COMMS_DRIVER_NAME, instance.peerCommsDriver},
+            {PLATFORM_CLOCK_DRIVER_NAME, instance.clockDriver},
+            {LOGGER_DRIVER_NAME, instance.loggerDriver},
+            {STORAGE_DRIVER_NAME, instance.storageDriver},
+        };
+
+        instance.pdn = PDN::createPDN(pdnConfig);
+        instance.pdn->begin();
+        instance.pdn->setActiveComms(SerialIdentifier::OUTPUT_JACK);
+
+        SimpleTimer::setPlatformClock(instance.clockDriver);
+
+        instance.player = nullptr;
+        instance.quickdrawWirelessManager = nullptr;
+
+        // KONAMI_CODE FDN: use SIGNAL_ECHO (value 7) as GameType — same numeric value
+        // as FdnGameType::KONAMI_CODE (7). NpcIdle broadcasts fdn:7:0.
+        // FdnDetected routes to KonamiMetaGame when player has all buttons.
+        KonamiButton reward = KonamiButton::UP;
+        instance.game = new FdnGame(GameType::SIGNAL_ECHO, reward);
+
+        AppConfig apps = {
+            {StateId(FDN_GAME_APP_ID), instance.game}
+        };
+        instance.pdn->loadAppConfig(apps, StateId(FDN_GAME_APP_ID));
+
+        SerialCableBroker::getInstance().registerDevice(
+            deviceIndex, instance.serialOutDriver, instance.serialInDriver, true);
+
+        return instance;
+    }
+
+    /**
      * Create a standalone game device (e.g., Signal Echo in standalone mode).
      *
      * @param deviceIndex Index for this device

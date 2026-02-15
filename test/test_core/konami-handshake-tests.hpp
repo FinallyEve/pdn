@@ -47,10 +47,10 @@ inline void konamiCodeWithAllButtonsRoutesToCodeEntry(KonamiHandshakeTestSuite* 
     suite->konamiHandshake->onStateLoop(suite->device);
 
     EXPECT_TRUE(suite->konamiHandshake->shouldTransition());
-    EXPECT_EQ(suite->konamiHandshake->getTargetStateIndex(), 29);
+    EXPECT_EQ(suite->konamiHandshake->getTargetStateIndex(), 32);
 }
 
-// Test: KONAMI_CODE FDN without all buttons routes to CodeRejected (index 30)
+// Test: KONAMI_CODE FDN without all buttons routes to CodeRejected (index 34)
 inline void konamiCodeWithoutAllButtonsRoutesToCodeRejected(KonamiHandshakeTestSuite* suite) {
     // Setup: Player has only 3 buttons (incomplete)
     suite->player->unlockKonamiButton(0);
@@ -67,7 +67,7 @@ inline void konamiCodeWithoutAllButtonsRoutesToCodeRejected(KonamiHandshakeTestS
     suite->konamiHandshake->onStateLoop(suite->device);
 
     EXPECT_TRUE(suite->konamiHandshake->shouldTransition());
-    EXPECT_EQ(suite->konamiHandshake->getTargetStateIndex(), 30);
+    EXPECT_EQ(suite->konamiHandshake->getTargetStateIndex(), 34);
 }
 
 // ============================================

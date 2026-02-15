@@ -656,7 +656,7 @@ private:
         CommandResult result;
 
         // Check max device limit
-        static constexpr int MAX_DEVICES = 8;
+        static constexpr int MAX_DEVICES = 11;
         if (devices.size() >= MAX_DEVICES) {
             result.message = "Cannot add more devices (max " + std::to_string(MAX_DEVICES) + ")";
             return result;
@@ -687,6 +687,17 @@ private:
                 std::string gameName = tokens[2];
                 for (char& c : gameName) {
                     if (c >= 'A' && c <= 'Z') c += 32;
+                }
+
+                // Special case: konami-code FDN (the 8th FDN)
+                if (gameName == "konami-code" || gameName == "konami") {
+                    int newIndex = static_cast<int>(devices.size());
+                    devices.push_back(DeviceFactory::createKonamiFdnDevice(newIndex));
+                    selectedDevice = newIndex;
+
+                    result.message = "Added NPC device " + devices.back().deviceId +
+                                     " running Konami Code FDN - now selected";
+                    return result;
                 }
 
                 GameType gameType;
@@ -790,7 +801,8 @@ private:
                          "  cipher-path       - Cipher Path\n"
                          "  exploit-sequencer - Exploit Sequencer\n"
                          "  breach-defense    - Breach Defense\n"
-                         "  signal-echo       - Signal Echo";
+                         "  signal-echo       - Signal Echo\n"
+                         "  konami-code       - Konami Code FDN (8th node)";
         return result;
     }
 
@@ -1496,7 +1508,7 @@ private:
         // Create or reuse demo device
         if (demoDeviceIndex < 0) {
             // Check max device limit
-            static constexpr int MAX_DEVICES = 8;
+            static constexpr int MAX_DEVICES = 11;
             if (devices.size() >= MAX_DEVICES) {
                 result.message = "Cannot create demo device (max " + std::to_string(MAX_DEVICES) + " devices)";
                 return result;
