@@ -39,8 +39,8 @@ private:
 };
 
 /*
- * SpikeVectorShow — Wave info screen. Shows "Wave X of Y" and lives.
- * Generates gap position for this wave, resets wall.
+ * SpikeVectorShow — Level info screen. Shows level progress pips and lives.
+ * Generates gap array for this level's wall formation.
  * Transitions to SpikeVectorGameplay after SHOW_DURATION_MS.
  */
 class SpikeVectorShow : public State {
@@ -61,10 +61,10 @@ private:
 };
 
 /*
- * SpikeVectorGameplay — Active dodging. Wall advances on timer.
+ * SpikeVectorGameplay — Active dodging. Walls scroll left on timer.
  * Primary button = move cursor UP (decrease position).
  * Secondary button = move cursor DOWN (increase position).
- * When wall reaches trackLength, transitions to SpikeVectorEvaluate.
+ * Collision detected inline. When all walls pass, transitions to SpikeVectorEvaluate.
  */
 class SpikeVectorGameplay : public State {
 public:
@@ -79,15 +79,17 @@ public:
     SpikeVector* game;
 
 private:
-    SimpleTimer wallTimer;
+    SimpleTimer scrollTimer;
     bool transitionToEvaluateState = false;
+    bool upButtonPressed = false;
+    bool downButtonPressed = false;
+    bool hitThisLevel = false;           // track if player was hit this level
 };
 
 /*
- * SpikeVectorEvaluate — Checks dodge result.
- * If cursor == gap: dodge (score += 100).
- * If cursor != gap: hit (hits++).
- * Routes to Show (next wave), Win (all waves cleared), or Lose (too many hits).
+ * SpikeVectorEvaluate — Level complete logic.
+ * Shows level-complete pip flash animation.
+ * Routes to Show (next level), Win (all levels cleared), or Lose (too many hits).
  */
 class SpikeVectorEvaluate : public State {
 public:
@@ -103,6 +105,11 @@ public:
 
 private:
     SpikeVector* game;
+    SimpleTimer flashTimer;
+    int flashCount = 0;
+    bool pipVisible = true;
+    static constexpr int FLASH_DURATION_MS = 150;
+    static constexpr int FLASH_CYCLES = 4;
     bool transitionToShowState = false;
     bool transitionToWinState = false;
     bool transitionToLoseState = false;

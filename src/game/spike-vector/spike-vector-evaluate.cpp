@@ -16,20 +16,16 @@ void SpikeVectorEvaluate::onStateMounted(Device* PDN) {
     transitionToShowState = false;
     transitionToWinState = false;
     transitionToLoseState = false;
+    flashCount = 0;
+    pipVisible = true;
 
     auto& session = game->getSession();
     auto& config = game->getConfig();
 
-    // Check if player dodged or got hit
-    if (session.cursorPosition == session.gapPosition) {
-        // Dodge — player was at the gap
-        session.score += 100;
-        LOG_I(TAG, "Dodge! Score: %d", session.score);
-    } else {
-        // Hit — player was not at the gap
-        session.hits++;
-        LOG_I(TAG, "Hit! Hits: %d/%d", session.hits, config.hitsAllowed);
-    }
+    // Award score for completing level
+    session.score += 100;
+    LOG_I(TAG, "Level %d complete! Score: %d, Hits: %d/%d",
+          session.currentLevel + 1, session.score, session.hits, config.hitsAllowed);
 
     // Check for loss condition
     if (session.hits > config.hitsAllowed) {
@@ -37,24 +33,81 @@ void SpikeVectorEvaluate::onStateMounted(Device* PDN) {
         return;
     }
 
-    // Advance wave
-    session.currentWave++;
+    // Advance level
+    session.currentLevel++;
 
     // Check for win condition
-    if (session.currentWave >= config.waves) {
+    if (session.currentLevel >= config.levels) {
         transitionToWinState = true;
         return;
     }
 
-    // Continue to next wave
-    transitionToShowState = true;
+    // Start pip flash animation
+    flashTimer.setTimer(FLASH_DURATION_MS);
 }
 
 void SpikeVectorEvaluate::onStateLoop(Device* PDN) {
-    // Transitions are determined in onStateMounted — nothing to do here
+    auto& session = game->getSession();
+    auto& config = game->getConfig();
+
+    // If transitioning to win/lose, skip animation
+    if (transitionToWinState || transitionToLoseState) {
+        return;
+    }
+
+    // Animate pip flashing
+    if (flashTimer.expired()) {
+        pipVisible = !pipVisible;
+        flashCount++;
+
+        // Draw progress pips with flashing animation
+        PDN->getDisplay()->invalidateScreen();
+
+        int totalPips = config.levels;
+        int pipSize = 6;
+        int pipSpacing = 10;
+        int totalWidth = (totalPips * pipSpacing) - (pipSpacing - pipSize);
+        int startX = (128 - totalWidth) / 2;
+
+        for (int i = 0; i < totalPips; i++) {
+            int pipX = startX + (i * pipSpacing);
+            int pipY = 30;
+
+            if (i < session.currentLevel - 1) {
+                // Previously completed level — always filled
+                PDN->getDisplay()->setDrawColor(1)->drawBox(pipX, pipY, pipSize, pipSize);
+            } else if (i == session.currentLevel - 1) {
+                // Just completed level — flash
+                if (pipVisible) {
+                    PDN->getDisplay()->setDrawColor(1)->drawBox(pipX, pipY, pipSize, pipSize);
+                } else {
+                    PDN->getDisplay()->setDrawColor(1)->drawFrame(pipX, pipY, pipSize, pipSize);
+                }
+            } else if (i == session.currentLevel) {
+                // Next level — frame
+                PDN->getDisplay()->setDrawColor(1)->drawFrame(pipX, pipY, pipSize, pipSize);
+            } else {
+                // Future level — smaller frame
+                PDN->getDisplay()->setDrawColor(1)->drawFrame(pipX + 1, pipY + 1, pipSize - 2, pipSize - 2);
+            }
+        }
+
+        PDN->getDisplay()->render();
+
+        // Check if animation complete
+        if (flashCount >= FLASH_CYCLES * 2) {
+            // Animation done — transition to next level
+            transitionToShowState = true;
+            return;
+        }
+
+        // Restart flash timer
+        flashTimer.setTimer(FLASH_DURATION_MS);
+    }
 }
 
 void SpikeVectorEvaluate::onStateDismounted(Device* PDN) {
+    flashTimer.invalidate();
     transitionToShowState = false;
     transitionToWinState = false;
     transitionToLoseState = false;

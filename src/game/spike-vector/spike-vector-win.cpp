@@ -21,7 +21,7 @@ void SpikeVectorWin::onStateMounted(Device* PDN) {
     auto& config = game->getConfig();
 
     // Determine hard mode based on config parameters
-    bool isHard = (config.hitsAllowed <= 1 && config.numPositions >= 7);
+    bool isHard = (config.hitsAllowed <= 1 && config.numLanes >= 7);
 
     MiniGameOutcome winOutcome;
     winOutcome.result = MiniGameResult::WON;

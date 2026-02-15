@@ -74,3 +74,13 @@ const LEDState SPIKE_VECTOR_LOSE_STATE = [](){
     }
     return state;
 }();
+
+/*
+ * Player cursor sprite — right-pointing triangle (►)
+ * 5×7 XBM bitmap for visual feedback on left edge
+ */
+#define cursor_width 5
+#define cursor_height 7
+static const unsigned char cursor_bits[] = {
+   0x01, 0x03, 0x07, 0x0f, 0x07, 0x03, 0x01
+};
