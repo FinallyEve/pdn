@@ -2,6 +2,8 @@
 
 #include "state/state-machine.hpp"
 #include "game/player.hpp"
+#include "game/progress-manager.hpp"
+#include "game/konami-metagame.hpp"
 
 /*
  * KonamiMetaGame - Master progression system for FDN minigames.
@@ -13,17 +15,9 @@
  * 4. All 7 buttons -> Konami code entry -> 13 inputs -> hard mode unlocked
  * 5. Hard mode -> Win -> Boon awarded -> colorProfileEligibility updated
  * 6. Mastery replay -> Mode select -> Launch game with correct difficulty
+ *
+ * 35-state layout defined in konami-metagame.hpp (parent directory)
  */
 
-constexpr int KONAMI_METAGAME_APP_ID = 9;
-
-class KonamiMetaGame : public StateMachine {
-public:
-    explicit KonamiMetaGame(Player* player);
-    ~KonamiMetaGame() override = default;
-
-    void populateStateMap() override;
-
-private:
-    Player* player;
-};
+// Class definition is in include/game/konami-metagame.hpp
+// This file re-exports it for backwards compatibility with existing includes.

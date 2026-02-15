@@ -2,6 +2,7 @@
 
 #include "game/player.hpp"
 #include "game/fdn-game-type.hpp"
+#include "game/progress-manager.hpp"
 #include "state/state-machine.hpp"
 #include "state/state.hpp"
 
@@ -35,9 +36,9 @@ enum KonamiMetaGameStateId {
     KONAMI_BUTTON_AWARDED = 29,
     KONAMI_BOON_AWARDED = 30,
     KONAMI_GAME_OVER_RETURN = 31,
-    KONAMI_CODE_ENTRY = 32,
-    KONAMI_CODE_ACCEPTED = 33,
-    KONAMI_CODE_REJECTED = 34
+    KMG_CODE_ENTRY = 32,
+    KMG_CODE_ACCEPTED = 33,
+    KMG_CODE_REJECTED = 34
 };
 
 /*
@@ -65,11 +66,13 @@ private:
  */
 class KonamiMetaGame : public StateMachine {
 public:
-    explicit KonamiMetaGame(Player* player);
+    KonamiMetaGame(Player* player, ProgressManager* progressManager = nullptr);
     ~KonamiMetaGame() override;
 
     void populateStateMap() override;
+    void onStateLoop(Device* PDN) override;
 
 private:
     Player* player;
+    ProgressManager* progressManager;
 };
