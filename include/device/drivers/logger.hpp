@@ -2,6 +2,7 @@
 
 #include <cstdarg>
 
+// cppcheck-suppress syntaxError
 enum class LogLevel {
     ERROR,
     WARN,

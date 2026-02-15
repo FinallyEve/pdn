@@ -377,6 +377,7 @@ private:
         DataRecvBuffer newBuffer;
         newBuffer.data = (uint8_t*)ps_malloc(pktHdr->numPktsInCluster * MAX_PKT_DATA_SIZE);
         newBuffer.expectedNextIdx = 1;
+        newBuffer.mostRecentRecvPktTime = millis();
         m_recvBuffers[macAddr64] = newBuffer;
     }
 

@@ -74,6 +74,8 @@ public:
         } else if(lightSet == LightIdentifier::GRIP_LIGHTS) {
             return LEDState::SingleLEDState(LEDColor(gripLights[index].r, gripLights[index].g), gripLights[index].b);
         }
+        // Default case: return black LED
+        return LEDState::SingleLEDState(LEDColor(0, 0), 0);
     }
     
     void fade(LightIdentifier lightSet, uint8_t fadeAmount) override {
