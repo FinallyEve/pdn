@@ -1309,6 +1309,61 @@ TEST_F(KonamiMetaGameTestSuite, konamiMetaGamePopulatesThirtyFiveStates) {
     konamiMetaGamePopulatesThirtyFiveStates(player);
 }
 
+// Unit Tests
+TEST_F(KonamiMetaGameTestSuite, easyModeButtonCollectionAdvancesProgress) {
+    easyModeButtonCollectionAdvancesProgress(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, modeUnlockFlagsWorkIndependently) {
+    modeUnlockFlagsWorkIndependently(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, duplicateButtonUnlocksAreIdempotent) {
+    duplicateButtonUnlocksAreIdempotent(player);
+}
+
+// Integration Tests
+TEST_F(KonamiMetaGameTestSuite, completeEasyProgressionFlow) {
+    completeEasyProgressionFlow(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, konamiCodeUnlockFlow) {
+    konamiCodeUnlockFlow(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, hardModeProgressionFlow) {
+    hardModeProgressionFlow(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, boonActivationFlow) {
+    boonActivationFlow(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, masteryReplayWithProfileSelection) {
+    masteryReplayWithProfileSelection(player);
+}
+
+// Edge Case Tests
+TEST_F(KonamiMetaGameTestSuite, disconnectDuringCodeEntryDoesntCorruptState) {
+    disconnectDuringCodeEntryDoesntCorruptState(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, partialButtonCollectionPersists) {
+    partialButtonCollectionPersists(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, modeSelectWithIncompleteProfiles) {
+    modeSelectWithIncompleteProfiles(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, replayWithoutReward) {
+    replayWithoutReward(player);
+}
+
+TEST_F(KonamiMetaGameTestSuite, allThirtyFiveStateIndicesAreValid) {
+    allThirtyFiveStateIndicesAreValid(player);
+}
+
 // ============================================
 // KONAMI HANDSHAKE TESTS
 // ============================================
