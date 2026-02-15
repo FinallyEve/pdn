@@ -22,7 +22,7 @@ constexpr int KONAMI_METAGAME_APP_ID = 9;
  * [33] = CodeAccepted
  * [34] = CodeRejected
  */
-enum KonamiMetaGameStateId {
+enum class KonamiMetaGameStateId {
     KONAMI_HANDSHAKE = 0,
     KONAMI_EASY_LAUNCH_START = 1,
     KONAMI_EASY_LAUNCH_END = 7,
