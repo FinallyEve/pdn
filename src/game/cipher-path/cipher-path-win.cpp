@@ -19,6 +19,17 @@ bool CipherPathWin::computeHardMode() const {
     return (config.gridSize >= 10 && config.moveBudget <= 14);
 }
 
+AnimationConfig CipherPathWin::getWinAnimationConfig() const {
+    AnimationConfig config;
+    config.type = AnimationType::IDLE;
+    config.speed = 20;
+    config.curve = EaseCurve::LINEAR;
+    config.initialState = getWinLedState();
+    config.loopDelayMs = 0;
+    config.loop = true;
+    return config;
+}
+
 void CipherPathWin::logVictory(int score, bool isHard) const {
     LOG_I(TAG, "PATH DECODED — score=%d, hardMode=%s",
           score, isHard ? "true" : "false");

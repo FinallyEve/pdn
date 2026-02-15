@@ -135,6 +135,9 @@ public:
 protected:
     const char* defeatText() const override { return "SPIKE IMPACT"; }
     LEDState getLoseLedState() const override;
+    bool showScoreOnLose() const override { return true; }
+    int getDefeatTextY() const override { return 25; }
+    AnimationConfig getLoseAnimationConfig() const override;
 
     void logDefeat(int score) const override;
 };

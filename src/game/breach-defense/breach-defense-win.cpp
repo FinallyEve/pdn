@@ -19,6 +19,18 @@ bool BreachDefenseWin::computeHardMode() const {
     return (config.numLanes >= 5 && config.missesAllowed <= 1);
 }
 
+AnimationConfig BreachDefenseWin::getWinAnimationConfig() const {
+    // Original implementation had no LED animation, only haptics
+    AnimationConfig config;
+    config.type = AnimationType::IDLE;
+    config.speed = 1;
+    config.curve = EaseCurve::LINEAR;
+    config.initialState = getWinLedState();
+    config.loopDelayMs = 0;
+    config.loop = false;
+    return config;
+}
+
 void BreachDefenseWin::logVictory(int score, bool isHard) const {
     LOG_I(TAG, "BREACH BLOCKED — score=%d, hardMode=%s",
           score, isHard ? "true" : "false");

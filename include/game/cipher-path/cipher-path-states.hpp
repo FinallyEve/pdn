@@ -123,6 +123,7 @@ protected:
     const char* victoryText() const override { return "PATH DECODED"; }
     LEDState getWinLedState() const override;
     bool computeHardMode() const override;
+    AnimationConfig getWinAnimationConfig() const override;
 
     void logVictory(int score, bool isHard) const override;
 };

@@ -35,6 +35,7 @@ protected:
     const char* introTitle() const override { return "SIGNAL ECHO"; }
     const char* introSubtext() const override { return "Watch. Repeat."; }
     LEDState getIdleLedState() const override;
+    int getTitleX() const override { return 15; }
 
     void onIntroSetup(Device* PDN) override;
 };

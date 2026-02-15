@@ -63,14 +63,8 @@ public:
             ->drawText(introSubtext(), getSubtextX(), getSubtextY());
         PDN->getDisplay()->render();
 
-        // Start idle LED animation
-        AnimationConfig config;
-        config.type = AnimationType::IDLE;
-        config.speed = 16;
-        config.curve = EaseCurve::LINEAR;
-        config.initialState = getIdleLedState();
-        config.loopDelayMs = 0;
-        config.loop = true;
+        // Start intro LED animation
+        AnimationConfig config = getIntroAnimationConfig();
         PDN->getLightManager()->startAnimation(config);
 
         // Start intro timer
@@ -105,6 +99,17 @@ protected:
     virtual int getSubtextX() const { return 10; }
     virtual int getSubtextY() const { return 45; }
     virtual void onIntroSetup(Device* PDN) { /* default: no additional setup */ }
+
+    virtual AnimationConfig getIntroAnimationConfig() const {
+        AnimationConfig config;
+        config.type = AnimationType::IDLE;
+        config.speed = 16;
+        config.curve = EaseCurve::LINEAR;
+        config.initialState = getIdleLedState();
+        config.loopDelayMs = 0;
+        config.loop = true;
+        return config;
+    }
 
     GameT* game;
     SimpleTimer introTimer;

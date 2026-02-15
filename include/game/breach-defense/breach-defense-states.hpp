@@ -34,6 +34,7 @@ protected:
     const char* introTitle() const override { return "BREACH DEFENSE"; }
     const char* introSubtext() const override { return "Hold the line."; }
     LEDState getIdleLedState() const override;
+    AnimationConfig getIntroAnimationConfig() const override;
 };
 
 /*
@@ -119,6 +120,7 @@ protected:
     const char* victoryText() const override { return "BREACH BLOCKED"; }
     LEDState getWinLedState() const override;
     bool computeHardMode() const override;
+    AnimationConfig getWinAnimationConfig() const override;
 
     void logVictory(int score, bool isHard) const override;
 };
