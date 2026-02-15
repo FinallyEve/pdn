@@ -32,6 +32,16 @@ FdnDetected::~FdnDetected() {
 }
 
 void FdnDetected::onStateMounted(Device* PDN) {
+    // If we are resuming after a game (gameLaunched is true from snapshot restore),
+    // skip the message parse and transition directly to FdnComplete.
+    // This prevents the "Failed to parse FDN message" warning when the message
+    // has been cleared by onStateDismounted() during the pause/resume cycle.
+    if (gameLaunched) {
+        LOG_I(TAG, "Resuming after game completion, transitioning to FdnComplete");
+        transitionToFdnCompleteState = true;
+        return;
+    }
+
     transitionToIdleState = false;
     transitionToFdnCompleteState = false;
     transitionToReencounterState = false;

@@ -31,6 +31,10 @@ TEST_F(FdnIntegrationTestSuite, HandshakeTimeout) {
     fdnIntegrationHandshakeTimeout(this);
 }
 
+TEST_F(FdnIntegrationTestSuite, ResumeAfterGameComplete) {
+    fdnIntegrationResumeAfterGameComplete(this);
+}
+
 // ============================================
 // FDN COMPLETE TESTS
 // ============================================

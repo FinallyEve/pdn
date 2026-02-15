@@ -177,6 +177,38 @@ void fdnIntegrationHandshakeTimeout(FdnIntegrationTestSuite* suite) {
     ASSERT_EQ(suite->getPlayerStateId(), IDLE);
 }
 
+// Test: FdnDetected resumes correctly after game completes (no warning about empty message)
+void fdnIntegrationResumeAfterGameComplete(FdnIntegrationTestSuite* suite) {
+    suite->advanceToIdle();
+
+    // Trigger FDN detection (Signal Echo)
+    suite->player_.serialOutDriver->injectInput("*fdn:7:6\r");
+    suite->tick(3);
+    ASSERT_EQ(suite->getPlayerStateId(), FDN_DETECTED);
+
+    // Complete handshake
+    suite->player_.serialOutDriver->injectInput("*fack\r");
+    suite->tickPlayerWithTime(5, 100);
+
+    // Verify game launched (Signal Echo is now active app)
+    auto* echo = suite->player_.pdn->getApp(StateId(SIGNAL_ECHO_APP_ID));
+    ASSERT_NE(echo, nullptr);
+
+    // Simulate game completion by directly calling returnToPreviousApp()
+    // (In real flow, the minigame would call this after showing results)
+    suite->player_.pdn->returnToPreviousApp();
+    suite->tick(3);
+
+    // Verify we're back in Quickdraw app and transitioned to FdnComplete
+    // (NOT stuck in FdnDetected trying to parse an empty message)
+    ASSERT_EQ(suite->getPlayerStateId(), FDN_COMPLETE);
+
+    // The fix prevents a "Failed to parse FDN message" warning that would
+    // have been logged if onStateMounted() tried to parse an empty message
+    // after the resume. There's no easy way to assert log absence in this
+    // test, but the state transition proves the guard worked correctly.
+}
+
 // ============================================
 // FDN COMPLETE TESTS
 // ============================================
