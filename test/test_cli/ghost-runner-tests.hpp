@@ -595,4 +595,103 @@ void ghostRunnerStateNamesResolve(GhostRunnerTestSuite* suite) {
     ASSERT_STREQ(getStateName(GHOST_GAMEPLAY), "GhostRunnerGameplay");
 }
 
+// ============================================
+// CABLE DISCONNECT TESTS
+// ============================================
+
+/*
+ * Test: Cable disconnect during managed mode gameplay forfeits the game
+ * and returns to Quickdraw Idle state.
+ */
+void ghostRunnerManagedCableDisconnectForfeits(GhostRunnerManagedTestSuite* suite) {
+    // Create NPC device
+    DeviceInstance npc = DeviceFactory::createFdnDevice(1, GameType::GHOST_RUNNER);
+
+    // Advance player to Idle
+    suite->advanceToIdle();
+    ASSERT_EQ(suite->getPlayerStateId(), 8);  // Idle state
+
+    // Connect cable between player and NPC
+    SerialCableBroker::getInstance().connect(0, 1);
+
+    // Trigger FDN broadcast and detection
+    suite->tick(5);
+    ASSERT_EQ(suite->getPlayerStateId(), 21);  // FdnDetected
+
+    // Complete FDN handshake — game launches
+    npc.pdn->loop();
+    suite->tick(5);
+
+    // Should be in Ghost Runner intro
+    GhostRunner* game = suite->getGhostRunner();
+    ASSERT_NE(game, nullptr);
+    ASSERT_EQ(suite->player_.pdn->getActiveAppId().id, GHOST_RUNNER_APP_ID);
+
+    // Advance through intro to gameplay
+    suite->tickWithTime(10, 250);
+    State* currentState = game->getCurrentState();
+    ASSERT_EQ(currentState->getStateId(), GHOST_GAMEPLAY);
+
+    // Disconnect cable mid-game
+    SerialCableBroker::getInstance().disconnect(0, 1);
+
+    // Tick once — game should detect disconnect and forfeit
+    suite->tick(1);
+
+    // Should have returned to Idle state
+    ASSERT_EQ(suite->getPlayerStateId(), 8);  // Back to Idle
+
+    // Game outcome should be LOST
+    ASSERT_EQ(game->getOutcome().result, MiniGameResult::LOST);
+
+    // Clean up NPC
+    DeviceFactory::destroyDevice(npc);
+}
+
+/*
+ * Test: Cable reconnect to different NPC after disconnect allows new game.
+ */
+void ghostRunnerCableReconnectToDifferentNpc(GhostRunnerManagedTestSuite* suite) {
+    // Create two NPCs with different games
+    DeviceInstance npc1 = DeviceFactory::createFdnDevice(1, GameType::GHOST_RUNNER);
+    DeviceInstance npc2 = DeviceFactory::createFdnDevice(2, GameType::SIGNAL_ECHO);
+
+    // Advance player to Idle
+    suite->advanceToIdle();
+    ASSERT_EQ(suite->getPlayerStateId(), 8);
+
+    // Connect to NPC1 and start Ghost Runner
+    SerialCableBroker::getInstance().connect(0, 1);
+    suite->tick(5);
+    ASSERT_EQ(suite->getPlayerStateId(), 21);  // FdnDetected
+
+    npc1.pdn->loop();
+    suite->tick(5);
+    ASSERT_EQ(suite->player_.pdn->getActiveAppId().id, GHOST_RUNNER_APP_ID);
+
+    // Advance to gameplay
+    suite->tickWithTime(10, 250);
+    GhostRunner* game = suite->getGhostRunner();
+    ASSERT_EQ(game->getCurrentState()->getStateId(), GHOST_GAMEPLAY);
+
+    // Disconnect from NPC1
+    SerialCableBroker::getInstance().disconnect(0, 1);
+    suite->tick(1);
+    ASSERT_EQ(suite->getPlayerStateId(), 8);  // Back to Idle
+
+    // Connect to NPC2 (different game)
+    SerialCableBroker::getInstance().connect(0, 2);
+    suite->tick(5);
+    ASSERT_EQ(suite->getPlayerStateId(), 21);  // FdnDetected again
+
+    // Complete handshake — should launch Signal Echo this time
+    npc2.pdn->loop();
+    suite->tick(5);
+    ASSERT_EQ(suite->player_.pdn->getActiveAppId().id, 2);  // Signal Echo app ID
+
+    // Clean up NPCs
+    DeviceFactory::destroyDevice(npc1);
+    DeviceFactory::destroyDevice(npc2);
+}
+
 #endif // NATIVE_BUILD

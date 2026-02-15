@@ -48,6 +48,20 @@ void BreachDefenseGameplay::onStateLoop(Device* PDN) {
     auto& session = game->getSession();
     auto& config = game->getConfig();
 
+    // Check for cable disconnect — forfeit if disconnected
+    if (!PDN->isSerialConnected()) {
+        LOG_W(TAG, "Cable disconnected during gameplay - forfeiting game");
+        MiniGameOutcome outcome;
+        outcome.result = MiniGameResult::LOST;
+        outcome.score = session.score;
+        outcome.hardMode = false;
+        game->setOutcome(outcome);
+        if (config.managedMode) {
+            PDN->returnToPreviousApp();
+        }
+        return;
+    }
+
     if (threatTimer.expired()) {
         session.threatPosition++;
 

@@ -15,6 +15,9 @@ public:
 
     ~NativeSerialDriver() override = default;
 
+    void setDeviceIndex(int index) { deviceIndex_ = index; }
+    int getDeviceIndex() const { return deviceIndex_; }
+
     int initialize() override {
         return 0;
     }
@@ -141,7 +144,8 @@ private:
     std::queue<std::string> inputBuffer_;
     std::string outputBuffer_;
     SerialStringCallback stringCallback_;
-    
+    int deviceIndex_ = -1;  // Set by CLI device factory
+
     // Message history (most recent at back)
     std::deque<std::string> sentHistory_;
     std::deque<std::string> receivedHistory_;

@@ -104,6 +104,12 @@ class DeviceSerial {
         inputJack()->flush();
     }
 
+    /*
+     * Check if the primary serial connection is active.
+     * For CLI simulator: checks SerialCableBroker for active cable connection.
+     * For ESP32 hardware: always returns true (physical cable assumed connected).
+     */
+    bool isSerialConnected();
 
 protected:
 

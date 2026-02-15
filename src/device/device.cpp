@@ -3,6 +3,11 @@
 #include "device/drivers/logger.hpp"
 #include <utility>
 
+#ifdef NATIVE_BUILD
+#include "cli/cli-serial-broker.hpp"
+#include "device/drivers/native/native-serial-driver.hpp"
+#endif
+
 const char* TAG = "Device";
 
 Device::~Device() {
@@ -76,4 +81,22 @@ void Device::loop() {
     if(app != appConfig.end()) {
         app->second->onStateLoop(this);
     }
+}
+
+bool DeviceSerial::isSerialConnected() {
+#ifdef NATIVE_BUILD
+    // CLI simulator: check if cable is connected via SerialCableBroker
+    auto* nativeDriver = dynamic_cast<NativeSerialDriver*>(getPrimaryCommsJack());
+    if (nativeDriver) {
+        int deviceIndex = nativeDriver->getDeviceIndex();
+        if (deviceIndex >= 0) {
+            int connectedDevice = cli::SerialCableBroker::getInstance().getConnectedDevice(deviceIndex);
+            return connectedDevice >= 0;
+        }
+    }
+    return false;  // No device index or not a native driver
+#else
+    // ESP32 hardware: assume cable is always connected (physical connection)
+    return true;
+#endif
 }

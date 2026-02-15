@@ -300,7 +300,9 @@ public:
         instance.lightDriver = new NativeLightStripDriver(LIGHT_DRIVER_NAME + suffix);
         instance.hapticsDriver = new NativeHapticsDriver(HAPTICS_DRIVER_NAME + suffix, 0);
         instance.serialOutDriver = new NativeSerialDriver(SERIAL_OUT_DRIVER_NAME + suffix);
+        instance.serialOutDriver->setDeviceIndex(deviceIndex);
         instance.serialInDriver = new NativeSerialDriver(SERIAL_IN_DRIVER_NAME + suffix);
+        instance.serialInDriver->setDeviceIndex(deviceIndex);
         instance.httpClientDriver = new NativeHttpClientDriver(HTTP_CLIENT_DRIVER_NAME + suffix);
         instance.httpClientDriver->setMockServerEnabled(true);  // Enable mock HTTP server
         instance.httpClientDriver->setConnected(true);  // Simulate WiFi connection

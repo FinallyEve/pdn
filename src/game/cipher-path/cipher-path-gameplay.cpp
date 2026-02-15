@@ -87,6 +87,20 @@ void CipherPathGameplay::onStateMounted(Device* PDN) {
 }
 
 void CipherPathGameplay::onStateLoop(Device* PDN) {
+    // Check for cable disconnect — forfeit if disconnected
+    if (!PDN->isSerialConnected()) {
+        LOG_W(TAG, "Cable disconnected during gameplay - forfeiting game");
+        MiniGameOutcome outcome;
+        outcome.result = MiniGameResult::LOST;
+        outcome.score = game->getSession().score;
+        outcome.hardMode = false;
+        game->setOutcome(outcome);
+        if (game->getConfig().managedMode) {
+            PDN->returnToPreviousApp();
+        }
+        return;
+    }
+
     if (needsEvaluation) {
         transitionToEvaluateState = true;
         return;

@@ -97,3 +97,11 @@ TEST_F(GhostRunnerTestSuite, TimeoutAtExactMissesAllowed) {
 TEST_F(GhostRunnerManagedTestSuite, ManagedModeReturns) {
     ghostRunnerManagedModeReturns(this);
 }
+
+TEST_F(GhostRunnerManagedTestSuite, ManagedCableDisconnectForfeits) {
+    ghostRunnerManagedCableDisconnectForfeits(this);
+}
+
+TEST_F(GhostRunnerManagedTestSuite, CableReconnectToDifferentNpc) {
+    ghostRunnerCableReconnectToDifferentNpc(this);
+}

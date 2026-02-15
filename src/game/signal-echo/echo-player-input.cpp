@@ -1,6 +1,9 @@
 #include "game/signal-echo/signal-echo-states.hpp"
 #include "game/signal-echo/signal-echo.hpp"
 #include "game/signal-echo/signal-echo-resources.hpp"
+#include "device/drivers/logger.hpp"
+
+static const char* TAG = "EchoPlayerInput";
 
 EchoPlayerInput::EchoPlayerInput(SignalEcho* game) : State(ECHO_PLAYER_INPUT) {
     this->game = game;
@@ -35,6 +38,20 @@ void EchoPlayerInput::onStateLoop(Device* PDN) {
     if (displayIsDirty) {
         renderInputScreen(PDN);
         displayIsDirty = false;
+    }
+
+    // Check for cable disconnect — forfeit if disconnected
+    if (!PDN->isSerialConnected()) {
+        LOG_W(TAG, "Cable disconnected during gameplay - forfeiting game");
+        MiniGameOutcome outcome;
+        outcome.result = MiniGameResult::LOST;
+        outcome.score = game->getSession().score;
+        outcome.hardMode = false;
+        game->setOutcome(outcome);
+        if (game->getConfig().managedMode) {
+            PDN->returnToPreviousApp();
+        }
+        return;
     }
 
     auto& session = game->getSession();
