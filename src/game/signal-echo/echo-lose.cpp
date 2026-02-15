@@ -1,71 +1,20 @@
 #include "game/signal-echo/signal-echo-states.hpp"
 #include "game/signal-echo/signal-echo.hpp"
 #include "game/signal-echo/signal-echo-resources.hpp"
+#include "device/drivers/logger.hpp"
 
-EchoLose::EchoLose(SignalEcho* game) : State(ECHO_LOSE) {
-    this->game = game;
+static const char* TAG = "EchoLose";
+
+EchoLose::EchoLose(SignalEcho* game) :
+    BaseLoseState<SignalEcho, ECHO_INTRO>(game, ECHO_LOSE)
+{
 }
 
-EchoLose::~EchoLose() {
-    game = nullptr;
+LEDState EchoLose::getLoseLedState() const {
+    return SIGNAL_ECHO_LOSE_STATE;
 }
 
-void EchoLose::onStateMounted(Device* PDN) {
-    transitionToIntroState = false;
-
+void EchoLose::logDefeat(int score) const {
     auto& session = game->getSession();
-
-    MiniGameOutcome loseOutcome;
-    loseOutcome.result = MiniGameResult::LOST;
-    loseOutcome.score = session.score;
-    loseOutcome.hardMode = false;
-    game->setOutcome(loseOutcome);
-
-    // Display defeat screen
-    PDN->getDisplay()->invalidateScreen();
-    PDN->getDisplay()->setGlyphMode(FontMode::TEXT)
-        ->drawText("SIGNAL LOST", 20, 30);
-    PDN->getDisplay()->render();
-
-    // Red fade LED
-    AnimationConfig config;
-    config.type = AnimationType::IDLE;
-    config.speed = 8;
-    config.curve = EaseCurve::LINEAR;
-    config.initialState = SIGNAL_ECHO_LOSE_STATE;
-    config.loopDelayMs = 0;
-    config.loop = true;
-    PDN->getLightManager()->startAnimation(config);
-
-    // Long haptic buzz
-    PDN->getHaptics()->max();
-
-    loseTimer.setTimer(LOSE_DISPLAY_MS);
-}
-
-void EchoLose::onStateLoop(Device* PDN) {
-    if (loseTimer.expired()) {
-        PDN->getHaptics()->off();
-        if (!game->getConfig().managedMode) {
-            // In standalone mode, restart the game
-            transitionToIntroState = true;
-        } else {
-            // In managed mode, return to the previous app
-            PDN->returnToPreviousApp();
-        }
-    }
-}
-
-void EchoLose::onStateDismounted(Device* PDN) {
-    loseTimer.invalidate();
-    transitionToIntroState = false;
-    PDN->getHaptics()->off();
-}
-
-bool EchoLose::transitionToIntro() {
-    return transitionToIntroState;
-}
-
-bool EchoLose::isTerminalState() const {
-    return game->getConfig().managedMode;
+    LOG_I(TAG, "SIGNAL LOST — score=%d, mistakes=%d", score, session.mistakes);
 }

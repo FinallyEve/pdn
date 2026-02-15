@@ -2,6 +2,9 @@
 
 #include "state/state.hpp"
 #include "utils/simple-timer.hpp"
+#include "game/base-states/base-intro-state.hpp"
+#include "game/base-states/base-win-state.hpp"
+#include "game/base-states/base-lose-state.hpp"
 
 class CipherPath;
 
@@ -21,21 +24,16 @@ enum CipherPathStateId {
  * CipherPathIntro — Title screen. Shows "CIPHER PATH" and subtitle.
  * Resets session, seeds RNG. Transitions to CipherPathShow.
  */
-class CipherPathIntro : public State {
+class CipherPathIntro : public BaseIntroState<CipherPath, CIPHER_SHOW> {
 public:
     explicit CipherPathIntro(CipherPath* game);
-    ~CipherPathIntro() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToShow();
+    bool transitionToShow() const { return this->transitionCondition(); }
 
-private:
-    CipherPath* game;
-    SimpleTimer introTimer;
-    static constexpr int INTRO_DURATION_MS = 2000;
-    bool transitionToShowState = false;
+protected:
+    const char* introTitle() const override { return "CIPHER PATH"; }
+    const char* introSubtext() const override { return "Decode the route."; }
+    LEDState getIdleLedState() const override;
 };
 
 /*
@@ -117,22 +115,16 @@ private:
  * Sets outcome to WON. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class CipherPathWin : public State {
+class CipherPathWin : public BaseWinState<CipherPath, CIPHER_INTRO> {
 public:
     explicit CipherPathWin(CipherPath* game);
-    ~CipherPathWin() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* victoryText() const override { return "PATH DECODED"; }
+    LEDState getWinLedState() const override;
+    bool computeHardMode() const override;
 
-private:
-    CipherPath* game;
-    SimpleTimer winTimer;
-    static constexpr int WIN_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logVictory(int score, bool isHard) const override;
 };
 
 /*
@@ -140,20 +132,13 @@ private:
  * Sets outcome to LOST. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class CipherPathLose : public State {
+class CipherPathLose : public BaseLoseState<CipherPath, CIPHER_INTRO> {
 public:
     explicit CipherPathLose(CipherPath* game);
-    ~CipherPathLose() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* defeatText() const override { return "PATH LOST"; }
+    LEDState getLoseLedState() const override;
 
-private:
-    CipherPath* game;
-    SimpleTimer loseTimer;
-    static constexpr int LOSE_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logDefeat(int score) const override;
 };

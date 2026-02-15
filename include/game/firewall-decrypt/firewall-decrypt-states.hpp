@@ -2,6 +2,9 @@
 
 #include "state/state.hpp"
 #include "utils/simple-timer.hpp"
+#include "game/base-states/base-intro-state.hpp"
+#include "game/base-states/base-win-state.hpp"
+#include "game/base-states/base-lose-state.hpp"
 
 class FirewallDecrypt;
 
@@ -20,21 +23,23 @@ enum FirewallDecryptStateId {
  * DecryptIntro — Title screen. Shows "FIREWALL DECRYPT" for 2 seconds.
  * Seeds RNG and sets up the first round.
  */
-class DecryptIntro : public State {
+class DecryptIntro : public BaseIntroState<FirewallDecrypt, DECRYPT_SCAN> {
 public:
     explicit DecryptIntro(FirewallDecrypt* game);
-    ~DecryptIntro() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToScan();
+    bool transitionToScan() const { return this->transitionCondition(); }
 
-private:
-    FirewallDecrypt* game;
-    SimpleTimer introTimer;
-    static constexpr int INTRO_DURATION_MS = 2000;
-    bool transitionToScanState = false;
+protected:
+    const char* introTitle() const override { return "FIREWALL"; }
+    const char* introSubtext() const override { return "DECRYPT"; }
+    LEDState getIdleLedState() const override;
+
+    int getTitleY() const override { return 20; }
+    int getSubtextY() const override { return 40; }
+    int getTitleX() const override { return 20; }
+    int getSubtextX() const override { return 25; }
+
+    void onIntroSetup(Device* PDN) override;
 };
 
 /*
@@ -94,42 +99,44 @@ private:
  * DecryptWin — Victory screen. Shows "DECRYPTED!" + score.
  * In managed mode, calls returnToPreviousApp.
  */
-class DecryptWin : public State {
+class DecryptWin : public BaseWinState<FirewallDecrypt, DECRYPT_INTRO> {
 public:
     explicit DecryptWin(FirewallDecrypt* game);
-    ~DecryptWin() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* victoryText() const override { return "DECRYPTED!"; }
+    LEDState getWinLedState() const override;
+    bool computeHardMode() const override;
 
-private:
-    FirewallDecrypt* game;
-    SimpleTimer winTimer;
-    static constexpr int WIN_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    int getVictoryTextX() const override { return 15; }
+
+    void logVictory(int score, bool isHard) const override;
 };
 
 /*
  * DecryptLose — Defeat screen. Shows "FIREWALL INTACT".
  * In managed mode, calls returnToPreviousApp.
  */
-class DecryptLose : public State {
+class DecryptLose : public BaseLoseState<FirewallDecrypt, DECRYPT_INTRO> {
 public:
     explicit DecryptLose(FirewallDecrypt* game);
-    ~DecryptLose() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* defeatText() const override { return "FIREWALL"; }
+    LEDState getLoseLedState() const override;
 
-private:
-    FirewallDecrypt* game;
-    SimpleTimer loseTimer;
-    static constexpr int LOSE_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    // Two-line defeat text: "FIREWALL" / "INTACT"
+    void getDefeatTextLines(const char*& line1, const char*& line2) const override {
+        line1 = "FIREWALL";
+        line2 = "INTACT";
+    }
+
+    int getDefeatTextX() const override { return 20; }
+    int getDefeatTextY() const override { return 20; }
+    int getDefeatText2X() const override { return 30; }
+    int getDefeatText2Y() const override { return 40; }
+
+    bool showScoreOnLose() const override { return true; }
+
+    void logDefeat(int score) const override;
 };

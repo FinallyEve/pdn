@@ -2,6 +2,9 @@
 
 #include "state/state.hpp"
 #include "utils/simple-timer.hpp"
+#include "game/base-states/base-intro-state.hpp"
+#include "game/base-states/base-win-state.hpp"
+#include "game/base-states/base-lose-state.hpp"
 
 class GhostRunner;
 
@@ -21,21 +24,16 @@ enum GhostRunnerStateId {
  * GhostRunnerIntro — Title screen. Shows "GHOST RUNNER" and subtitle.
  * Seeds RNG, resets session, transitions to GhostRunnerShow after timer.
  */
-class GhostRunnerIntro : public State {
+class GhostRunnerIntro : public BaseIntroState<GhostRunner, GHOST_SHOW> {
 public:
     explicit GhostRunnerIntro(GhostRunner* game);
-    ~GhostRunnerIntro() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToShow();
+    bool transitionToShow() const { return this->transitionCondition(); }
 
-private:
-    GhostRunner* game;
-    SimpleTimer introTimer;
-    static constexpr int INTRO_DURATION_MS = 2000;
-    bool transitionToShowState = false;
+protected:
+    const char* introTitle() const override { return "GHOST RUNNER"; }
+    const char* introSubtext() const override { return "Phase through."; }
+    LEDState getIdleLedState() const override;
 };
 
 /*
@@ -114,22 +112,16 @@ private:
  * Sets outcome to WON. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class GhostRunnerWin : public State {
+class GhostRunnerWin : public BaseWinState<GhostRunner, GHOST_INTRO> {
 public:
     explicit GhostRunnerWin(GhostRunner* game);
-    ~GhostRunnerWin() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* victoryText() const override { return "RUN COMPLETE"; }
+    LEDState getWinLedState() const override;
+    bool computeHardMode() const override;
 
-private:
-    GhostRunner* game;
-    SimpleTimer winTimer;
-    static constexpr int WIN_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logVictory(int score, bool isHard) const override;
 };
 
 /*
@@ -137,20 +129,13 @@ private:
  * Sets outcome to LOST. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class GhostRunnerLose : public State {
+class GhostRunnerLose : public BaseLoseState<GhostRunner, GHOST_INTRO> {
 public:
     explicit GhostRunnerLose(GhostRunner* game);
-    ~GhostRunnerLose() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* defeatText() const override { return "GHOST CAUGHT"; }
+    LEDState getLoseLedState() const override;
 
-private:
-    GhostRunner* game;
-    SimpleTimer loseTimer;
-    static constexpr int LOSE_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logDefeat(int score) const override;
 };

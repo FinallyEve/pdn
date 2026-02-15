@@ -2,6 +2,9 @@
 
 #include "state/state.hpp"
 #include "utils/simple-timer.hpp"
+#include "game/base-states/base-intro-state.hpp"
+#include "game/base-states/base-win-state.hpp"
+#include "game/base-states/base-lose-state.hpp"
 
 class SignalEcho;
 
@@ -22,21 +25,18 @@ enum SignalEchoStateId {
  * Transitions to EchoShowSequence after INTRO_DURATION_MS.
  * Also seeds the RNG and generates the first sequence.
  */
-class EchoIntro : public State {
+class EchoIntro : public BaseIntroState<SignalEcho, ECHO_SHOW_SEQUENCE> {
 public:
     explicit EchoIntro(SignalEcho* game);
-    ~EchoIntro() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToShowSequence();
+    bool transitionToShowSequence() const { return this->transitionCondition(); }
 
-private:
-    SignalEcho* game;
-    SimpleTimer introTimer;
-    static constexpr int INTRO_DURATION_MS = 2000;
-    bool transitionToShowSequenceState = false;
+protected:
+    const char* introTitle() const override { return "SIGNAL ECHO"; }
+    const char* introSubtext() const override { return "Watch. Repeat."; }
+    LEDState getIdleLedState() const override;
+
+    void onIntroSetup(Device* PDN) override;
 };
 
 /*
@@ -132,22 +132,16 @@ private:
  * LEDs: Rainbow sweep
  * Haptics: Celebration pattern
  */
-class EchoWin : public State {
+class EchoWin : public BaseWinState<SignalEcho, ECHO_INTRO> {
 public:
     explicit EchoWin(SignalEcho* game);
-    ~EchoWin() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* victoryText() const override { return "ACCESS GRANTED"; }
+    LEDState getWinLedState() const override;
+    bool computeHardMode() const override;
 
-private:
-    SignalEcho* game;
-    SimpleTimer winTimer;
-    static constexpr int WIN_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logVictory(int score, bool isHard) const override;
 };
 
 /*
@@ -158,20 +152,13 @@ private:
  * LEDs: Red fade
  * Haptics: Long buzz
  */
-class EchoLose : public State {
+class EchoLose : public BaseLoseState<SignalEcho, ECHO_INTRO> {
 public:
     explicit EchoLose(SignalEcho* game);
-    ~EchoLose() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* defeatText() const override { return "SIGNAL LOST"; }
+    LEDState getLoseLedState() const override;
 
-private:
-    SignalEcho* game;
-    SimpleTimer loseTimer;
-    static constexpr int LOSE_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logDefeat(int score) const override;
 };

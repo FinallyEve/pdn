@@ -2,6 +2,9 @@
 
 #include "state/state.hpp"
 #include "utils/simple-timer.hpp"
+#include "game/base-states/base-intro-state.hpp"
+#include "game/base-states/base-win-state.hpp"
+#include "game/base-states/base-lose-state.hpp"
 
 class SpikeVector;
 
@@ -21,21 +24,16 @@ enum SpikeVectorStateId {
  * SpikeVectorIntro — Title screen. Shows "SPIKE VECTOR" and subtitle.
  * Resets session, seeds RNG. Transitions to SpikeVectorShow after timer.
  */
-class SpikeVectorIntro : public State {
+class SpikeVectorIntro : public BaseIntroState<SpikeVector, SPIKE_SHOW> {
 public:
     explicit SpikeVectorIntro(SpikeVector* game);
-    ~SpikeVectorIntro() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToShow();
+    bool transitionToShow() const { return this->transitionCondition(); }
 
-private:
-    SpikeVector* game;
-    SimpleTimer introTimer;
-    static constexpr int INTRO_DURATION_MS = 2000;
-    bool transitionToShowState = false;
+protected:
+    const char* introTitle() const override { return "SPIKE VECTOR"; }
+    const char* introSubtext() const override { return "Dodge the grid."; }
+    LEDState getIdleLedState() const override;
 };
 
 /*
@@ -113,22 +111,16 @@ private:
  * Sets outcome to WON. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class SpikeVectorWin : public State {
+class SpikeVectorWin : public BaseWinState<SpikeVector, SPIKE_INTRO> {
 public:
     explicit SpikeVectorWin(SpikeVector* game);
-    ~SpikeVectorWin() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* victoryText() const override { return "VECTOR CLEAR"; }
+    LEDState getWinLedState() const override;
+    bool computeHardMode() const override;
 
-private:
-    SpikeVector* game;
-    SimpleTimer winTimer;
-    static constexpr int WIN_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logVictory(int score, bool isHard) const override;
 };
 
 /*
@@ -136,20 +128,13 @@ private:
  * Sets outcome to LOST. In standalone mode, transitions back to Intro.
  * In managed mode, calls Device::returnToPreviousApp().
  */
-class SpikeVectorLose : public State {
+class SpikeVectorLose : public BaseLoseState<SpikeVector, SPIKE_INTRO> {
 public:
     explicit SpikeVectorLose(SpikeVector* game);
-    ~SpikeVectorLose() override;
 
-    void onStateMounted(Device* PDN) override;
-    void onStateLoop(Device* PDN) override;
-    void onStateDismounted(Device* PDN) override;
-    bool transitionToIntro();
-    bool isTerminalState() const override;
+protected:
+    const char* defeatText() const override { return "SPIKE IMPACT"; }
+    LEDState getLoseLedState() const override;
 
-private:
-    SpikeVector* game;
-    SimpleTimer loseTimer;
-    static constexpr int LOSE_DISPLAY_MS = 3000;
-    bool transitionToIntroState = false;
+    void logDefeat(int score) const override;
 };
