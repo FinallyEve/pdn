@@ -606,10 +606,26 @@ private:
                                    std::vector<DeviceInstance>& devices,
                                    int selectedDevice) {
         CommandResult result;
+
+        // Parse command: konami [device] | konami set <value> | konami set <device> <value>
+        bool isSet = (tokens.size() >= 2 && tokens[1] == "set");
         int targetDevice = selectedDevice;
-        if (tokens.size() >= 3) {
-            targetDevice = findDevice(tokens[1], devices, selectedDevice);
+
+        if (isSet) {
+            // Set mode: konami set <value> OR konami set <device> <value>
+            if (tokens.size() == 4) {
+                targetDevice = findDevice(tokens[2], devices, selectedDevice);
+            } else if (tokens.size() != 3) {
+                result.message = "Usage: konami set <value> OR konami set <device> <value>";
+                return result;
+            }
+        } else {
+            // Show mode: konami [device]
+            if (tokens.size() == 2) {
+                targetDevice = findDevice(tokens[1], devices, selectedDevice);
+            }
         }
+
         if (targetDevice < 0 || targetDevice >= static_cast<int>(devices.size())) {
             result.message = "Invalid device";
             return result;
@@ -619,7 +635,8 @@ private:
             result.message = "Device has no player (FDN devices don't have players)";
             return result;
         }
-        if (tokens.size() < 2) {
+
+        if (!isSet) {
             // Show current progress
             uint8_t progress = dev.player->getKonamiProgress();
             bool boon = dev.player->hasKonamiBoon();
@@ -630,8 +647,9 @@ private:
             result.message = buf;
             return result;
         }
-        // Set progress: konami <device> <value> OR konami <value>
-        std::string valueStr = (tokens.size() >= 3) ? tokens[2] : tokens[1];
+
+        // Set progress
+        std::string valueStr = (tokens.size() == 4) ? tokens[3] : tokens[2];
         int value = std::atoi(valueStr.c_str());
         dev.player->setKonamiProgress(static_cast<uint8_t>(value & 0xFF));
 

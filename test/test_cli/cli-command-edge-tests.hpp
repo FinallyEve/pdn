@@ -561,3 +561,80 @@ void captionsCommandAlias(CliCommandProcessorTestSuite* suite) {
 
     ASSERT_FALSE(result.message.empty());
 }
+
+// ============================================
+// KONAMI COMMAND TESTS
+// ============================================
+
+// Test: konami command with no arguments shows selected device progress
+void konamiCommandNoArgsShowsProgress(CliCommandProcessorTestSuite* suite) {
+    auto result = suite->processor_->execute("konami", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    ASSERT_NE(result.message.find("Konami:"), std::string::npos);
+    ASSERT_NE(result.message.find("0x"), std::string::npos);  // Hex format
+    ASSERT_NE(result.message.find("boon="), std::string::npos);
+}
+
+// Test: konami command with device index shows that device's progress (bug #204 fix)
+void konamiCommandWithDeviceIndexShowsProgress(CliCommandProcessorTestSuite* suite) {
+    // Set progress on device 1
+    suite->devices_[1].player->setKonamiProgress(0x42);
+
+    // Query device 1's progress - should NOT reset it to 0
+    auto result = suite->processor_->execute("konami 1", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    // Verify it shows progress, not a "set" message
+    ASSERT_NE(result.message.find("Konami:"), std::string::npos);
+    ASSERT_EQ(result.message.find("Konami set:"), std::string::npos);  // Should NOT contain "set"
+
+    // Verify device 1's progress was NOT reset
+    ASSERT_EQ(suite->devices_[1].player->getKonamiProgress(), 0x42);
+}
+
+// Test: konami command with device 0 shows progress (specific bug #204 case)
+void konamiCommandWithDevice0ShowsProgress(CliCommandProcessorTestSuite* suite) {
+    // Set non-zero progress on device 0
+    suite->devices_[0].player->setKonamiProgress(0x7F);
+
+    // Query device 0's progress with "konami 0"
+    auto result = suite->processor_->execute("konami 0", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    // Verify it shows progress
+    ASSERT_NE(result.message.find("Konami:"), std::string::npos);
+    ASSERT_NE(result.message.find("0x7F"), std::string::npos);
+
+    // Verify device 0's progress was NOT reset to 0
+    ASSERT_EQ(suite->devices_[0].player->getKonamiProgress(), 0x7F);
+}
+
+// Test: konami set <value> sets progress for selected device
+void konamiCommandSetValueForSelectedDevice(CliCommandProcessorTestSuite* suite) {
+    auto result = suite->processor_->execute("konami set 85", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    ASSERT_NE(result.message.find("Konami set:"), std::string::npos);
+    ASSERT_EQ(suite->devices_[suite->selectedDevice_].player->getKonamiProgress(), 85);
+}
+
+// Test: konami set <device> <value> sets progress for specified device
+void konamiCommandSetDeviceValue(CliCommandProcessorTestSuite* suite) {
+    auto result = suite->processor_->execute("konami set 1 127", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    ASSERT_NE(result.message.find("Konami set:"), std::string::npos);
+    ASSERT_EQ(suite->devices_[1].player->getKonamiProgress(), 127);
+}
+
+// Test: konami set with no value shows usage
+void konamiCommandSetNoValue(CliCommandProcessorTestSuite* suite) {
+    auto result = suite->processor_->execute("konami set", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    ASSERT_NE(result.message.find("Usage"), std::string::npos);
+}
+
+// Test: konami command auto-boons when all 7 bits set
+void konamiCommandAutoBoon(CliCommandProcessorTestSuite* suite) {
+    // Set all 7 bits (127 = 0x7F = 0b01111111)
+    auto result = suite->processor_->execute("konami set 127", suite->devices_, suite->selectedDevice_, *suite->renderer_);
+
+    ASSERT_NE(result.message.find("boon=yes"), std::string::npos);
+    ASSERT_TRUE(suite->devices_[suite->selectedDevice_].player->hasKonamiBoon());
+}

@@ -648,3 +648,35 @@ TEST_F(CliCommandProcessorTestSuite, CaptionsCommandInvalidArg) {
 TEST_F(CliCommandProcessorTestSuite, CaptionsCommandAlias) {
     captionsCommandAlias(this);
 }
+
+// ============================================
+// KONAMI COMMAND TEST REGISTRATIONS
+// ============================================
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandNoArgsShowsProgress) {
+    konamiCommandNoArgsShowsProgress(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandWithDeviceIndexShowsProgress) {
+    konamiCommandWithDeviceIndexShowsProgress(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandWithDevice0ShowsProgress) {
+    konamiCommandWithDevice0ShowsProgress(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandSetValueForSelectedDevice) {
+    konamiCommandSetValueForSelectedDevice(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandSetDeviceValue) {
+    konamiCommandSetDeviceValue(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandSetNoValue) {
+    konamiCommandSetNoValue(this);
+}
+
+TEST_F(CliCommandProcessorTestSuite, KonamiCommandAutoBoon) {
+    konamiCommandAutoBoon(this);
+}
