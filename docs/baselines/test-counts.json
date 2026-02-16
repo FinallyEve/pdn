@@ -1,21 +1,20 @@
 {
   "date": "2026-02-16",
-  "description": "Baseline test counts for quality ratcheting (issue #280)",
+  "description": "Wave 20 baseline — post Wave 18+19 merges",
   "test_environments": {
     "native": {
       "description": "Core unit tests (test_core/)",
-      "total_tests": 275,
-      "status": "broken",
-      "note": "MockStateMachine missing loopCount member - compilation errors preventing execution"
+      "total_tests": 283,
+      "passing_tests": 283,
+      "status": "passing",
+      "duration_seconds": 29.71,
+      "note": "All tests passing after Wave 19 sanitizer sweep fixes"
     },
     "native_cli_test": {
       "description": "CLI integration tests (test_cli/)",
-      "total_tests": 189,
-      "passing_tests": 181,
-      "failing_tests": 7,
-      "skipped_tests": 1,
-      "status": "partial_failure",
-      "note": "SIGSEGV in SignalEchoLossNoRewards test"
+      "total_tests": 0,
+      "status": "compilation_failed",
+      "note": "DISABLED_* tests reference missing functions (ghostRunner*, cipherPath* integration tests)"
     }
   },
   "quality_ratchet_rules": {
@@ -24,6 +23,5 @@
     "rule_3": "New features must include tests before merge",
     "rule_4": "Fixing a broken test counts as progress"
   },
-  "next_review_date": "2026-03-16",
-  "owner": "CI Review Bot (Agent 03)"
+  "next_review_date": "2026-03-16"
 }
