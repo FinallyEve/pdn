@@ -1,75 +1,81 @@
 //
 // Breach Defense Tests — Registration file for Breach Defense minigame
 //
-// NOTE: Tests temporarily disabled during Wave 18 redesign (#231)
-// The 6-state flow (Intro->Show->Gameplay->Evaluate->Win/Lose) has been
-// redesigned to 4-state flow (Intro->Gameplay->Win/Lose) with combo pipeline.
-// Tests need to be rewritten for new mechanics:
-// - Multi-threat overlap (2 easy / 3 hard)
-// - Inline evaluation during gameplay
-// - Continuous rendering with Pong x Space Invaders visuals
+// Wave 20 Rewrite: Tests updated for Wave 18 combo redesign (#231)
+// New 4-state flow: Intro→Gameplay→Win/Lose with inline evaluation
+// Combo mechanics: multi-threat overlap, fixed rhythm spawning, continuous rendering
 //
-// TODO(#231): Rewrite tests for new combo defense mechanics
 
 #include <gtest/gtest.h>
-
-// Temporarily not including header since all tests disabled
-// #include "breach-defense-tests.hpp"
-
-// Minimal includes for config tests only
-#include "game/breach-defense/breach-defense.hpp"
+#include "breach-defense-tests.hpp"
 
 // ============================================
-// BREACH DEFENSE TESTS — TEMPORARILY DISABLED
+// CONFIG PRESET TESTS
 // ============================================
 
-// Minimal test suite for basic sanity checks
-class BreachDefenseTestSuite : public testing::Test {
-public:
-    void SetUp() override {}
-    void TearDown() override {}
-};
-
-// Config tests still valid
 TEST_F(BreachDefenseTestSuite, EasyConfigPresets) {
-    BreachDefenseConfig cfg = makeBreachDefenseEasyConfig();
-    ASSERT_EQ(cfg.numLanes, 3);
-    ASSERT_EQ(cfg.totalThreats, 6);
-    ASSERT_EQ(cfg.missesAllowed, 3);
-    ASSERT_EQ(cfg.spawnIntervalMs, 1500);
-    ASSERT_EQ(cfg.maxOverlap, 2);
+    breachDefenseEasyConfigPresets(this);
 }
 
 TEST_F(BreachDefenseTestSuite, HardConfigPresets) {
-    BreachDefenseConfig cfg = makeBreachDefenseHardConfig();
-    ASSERT_EQ(cfg.numLanes, 5);
-    ASSERT_EQ(cfg.totalThreats, 12);
-    ASSERT_EQ(cfg.missesAllowed, 1);
-    ASSERT_EQ(cfg.spawnIntervalMs, 700);
-    ASSERT_EQ(cfg.maxOverlap, 3);
+    breachDefenseHardConfigPresets(this);
 }
 
-// All other tests disabled pending rewrite for new mechanics
-/*
+// ============================================
+// INTRO STATE TESTS
+// ============================================
+
 TEST_F(BreachDefenseTestSuite, IntroResetsSession) {
     breachDefenseIntroResetsSession(this);
 }
 
-TEST_F(BreachDefenseTestSuite, IntroTransitionsToShow) {
-    breachDefenseIntroTransitionsToShow(this);
+TEST_F(BreachDefenseTestSuite, IntroTransitionsToGameplay) {
+    breachDefenseIntroTransitionsToGameplay(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ShowDisplaysThreatInfo) {
-    breachDefenseShowDisplaysThreatInfo(this);
+// ============================================
+// GAMEPLAY STATE TESTS — THREAT MECHANICS
+// ============================================
+
+TEST_F(BreachDefenseTestSuite, FirstThreatSpawnsImmediately) {
+    breachDefenseFirstThreatSpawnsImmediately(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ShowTransitionsToGameplay) {
-    breachDefenseShowTransitionsToGameplay(this);
+TEST_F(BreachDefenseTestSuite, ThreatSpawnRhythm) {
+    breachDefenseThreatSpawnRhythm(this);
+}
+
+TEST_F(BreachDefenseTestSuite, MaxOverlapConstraint) {
+    breachDefenseMaxOverlapConstraint(this);
 }
 
 TEST_F(BreachDefenseTestSuite, ThreatAdvancesWithTime) {
     breachDefenseThreatAdvancesWithTime(this);
 }
+
+// ============================================
+// GAMEPLAY STATE TESTS — SHIELD MECHANICS
+// ============================================
+
+TEST_F(BreachDefenseTestSuite, ShieldMovesUp) {
+    breachDefenseShieldMovesUp(this);
+}
+
+TEST_F(BreachDefenseTestSuite, ShieldMovesDown) {
+    breachDefenseShieldMovesDown(this);
+}
+
+TEST_F(BreachDefenseTestSuite, ShieldClampedAtBottom) {
+    breachDefenseShieldClampedAtBottom(this);
+}
+
+TEST_F(BreachDefenseTestSuite, ShieldClampedAtTop) {
+    breachDefenseShieldClampedAtTop(this);
+}
+
+// ============================================
+// GAMEPLAY STATE TESTS — INLINE EVALUATION
+// ============================================
 
 TEST_F(BreachDefenseTestSuite, CorrectBlock) {
     breachDefenseCorrectBlock(this);
@@ -79,21 +85,29 @@ TEST_F(BreachDefenseTestSuite, MissedThreat) {
     breachDefenseMissedThreat(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ShieldMovesUpDown) {
-    breachDefenseShieldMovesUpDown(this);
+TEST_F(BreachDefenseTestSuite, MultipleThreatOverlap) {
+    breachDefenseMultipleThreatOverlap(this);
 }
 
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToNextThreat) {
-    breachDefenseEvaluateRoutesToNextThreat(this);
+// ============================================
+// WIN/LOSE CONDITION TESTS
+// ============================================
+
+TEST_F(BreachDefenseTestSuite, WinCondition) {
+    breachDefenseWinCondition(this);
 }
 
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToWin) {
-    breachDefenseEvaluateRoutesToWin(this);
+TEST_F(BreachDefenseTestSuite, LoseCondition) {
+    breachDefenseLoseCondition(this);
 }
 
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToLose) {
-    breachDefenseEvaluateRoutesToLose(this);
+TEST_F(BreachDefenseTestSuite, ExactBreachesEqualAllowed) {
+    breachDefenseExactBreachesEqualAllowed(this);
 }
+
+// ============================================
+// WIN/LOSE STATE TESTS
+// ============================================
 
 TEST_F(BreachDefenseTestSuite, WinSetsOutcome) {
     breachDefenseWinSetsOutcome(this);
@@ -103,34 +117,30 @@ TEST_F(BreachDefenseTestSuite, LoseSetsOutcome) {
     breachDefenseLoseSetsOutcome(this);
 }
 
-TEST_F(BreachDefenseTestSuite, StandaloneLoopsToIntro) {
-    breachDefenseStandaloneLoopsToIntro(this);
+TEST_F(BreachDefenseTestSuite, StandaloneWinLoopsToIntro) {
+    breachDefenseStandaloneWinLoopsToIntro(this);
 }
 
-TEST_F(BreachDefenseTestSuite, StateNamesResolve) {
-    breachDefenseStateNamesResolve(this);
+TEST_F(BreachDefenseTestSuite, StandaloneLoseLoopsToIntro) {
+    breachDefenseStandaloneLoseLoopsToIntro(this);
 }
 
-TEST_F(BreachDefenseTestSuite, BlockAtLaneZero) {
-    breachDefenseBlockAtLaneZero(this);
+// ============================================
+// DIFFICULTY TESTS
+// ============================================
+
+TEST_F(BreachDefenseTestSuite, EasyDifficulty) {
+    breachDefenseEasyDifficulty(this);
 }
 
-TEST_F(BreachDefenseTestSuite, BlockAtMaxLane) {
-    breachDefenseBlockAtMaxLane(this);
+TEST_F(BreachDefenseTestSuite, HardDifficulty) {
+    breachDefenseHardDifficulty(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ExactBreachesEqualAllowed) {
-    breachDefenseExactBreachesEqualAllowed(this);
-}
+// ============================================
+// INTEGRATION TESTS — MANAGED MODE (FDN)
+// ============================================
 
-TEST_F(BreachDefenseTestSuite, HapticsIntensityDiffers) {
-    breachDefenseHapticsIntensityDiffers(this);
-}
-
-// DISABLED: Wave 17 KonamiMetaGame routing changed (Issue #271)
-// After minigame completes, app transition flow (KonamiMetaGame → resume → FdnComplete) doesn't
-// match test expectations. Re-enable after verifying managed mode return flow.
-TEST_F(BreachDefenseManagedTestSuite, DISABLED_ManagedModeReturns) {
+TEST_F(BreachDefenseManagedTestSuite, ManagedModeReturns) {
     breachDefenseManagedModeReturns(this);
 }
-*/
