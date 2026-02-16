@@ -30,6 +30,10 @@ public:
         device_ = DeviceFactory::createGameDevice(0, "ghost-runner");
         SimpleTimer::setPlatformClock(device_.clockDriver);
         game_ = static_cast<GhostRunner*>(device_.game);
+
+        // Re-enter intro so timers use the correct clock
+        game_->skipToState(device_.pdn, 0);
+        device_.pdn->loop();
     }
 
     void TearDown() override {
@@ -108,35 +112,39 @@ public:
 // ============================================
 
 /*
- * Test: Easy config has wide hit zone, no dual-lane notes, 4 rounds, 3 lives.
+ * Test: Easy config has correct maze dimensions and timing.
  */
 void ghostRunnerEasyConfigPresets(GhostRunnerTestSuite* suite) {
     GhostRunnerConfig easy = GHOST_RUNNER_EASY;
-    ASSERT_EQ(easy.ghostSpeedMs, 50);
+    ASSERT_EQ(easy.cols, 5);
+    ASSERT_EQ(easy.rows, 3);
     ASSERT_EQ(easy.rounds, 4);
-    ASSERT_EQ(easy.notesPerRound, 8);
-    ASSERT_EQ(easy.dualLaneChance, 0.0f);  // no dual-lane notes in easy
-    ASSERT_EQ(easy.holdNoteChance, 0.15f);
     ASSERT_EQ(easy.lives, 3);
-    ASSERT_EQ(easy.hitZoneWidthPx, 20);  // wide hit zone
-    ASSERT_EQ(easy.perfectZonePx, 6);
-    ASSERT_EQ(easy.speedRampPerRound, 1.0f);  // no speed increase
+    ASSERT_EQ(easy.previewMazeMs, 4000);
+    ASSERT_EQ(easy.previewTraceMs, 4000);
+    ASSERT_EQ(easy.bonkFlashMs, 1000);
+    ASSERT_EQ(easy.startRow, 0);
+    ASSERT_EQ(easy.startCol, 0);
+    ASSERT_EQ(easy.exitRow, 2);
+    ASSERT_EQ(easy.exitCol, 4);
+    ASSERT_FLOAT_EQ(easy.previewShrinkPerRound, 0.85f);
 }
 
 /*
- * Test: Hard config has narrow hit zone, dual-lane notes, speed ramp, 3 lives.
+ * Test: Hard config has larger maze and shorter preview times.
  */
 void ghostRunnerHardConfigPresets(GhostRunnerTestSuite* suite) {
     GhostRunnerConfig hard = GHOST_RUNNER_HARD;
-    ASSERT_EQ(hard.ghostSpeedMs, 30);
-    ASSERT_EQ(hard.rounds, 4);
-    ASSERT_EQ(hard.notesPerRound, 12);  // more notes
-    ASSERT_EQ(hard.dualLaneChance, 0.4f);  // 40% dual-lane
-    ASSERT_EQ(hard.holdNoteChance, 0.35f);  // more hold notes
-    ASSERT_EQ(hard.lives, 3);
-    ASSERT_EQ(hard.hitZoneWidthPx, 14);  // narrow hit zone
-    ASSERT_EQ(hard.perfectZonePx, 3);
-    ASSERT_EQ(hard.speedRampPerRound, 1.1f);  // 10% speed increase per round
+    ASSERT_EQ(hard.cols, 7);
+    ASSERT_EQ(hard.rows, 5);
+    ASSERT_EQ(hard.rounds, 6);
+    ASSERT_EQ(hard.lives, 1);
+    ASSERT_EQ(hard.previewMazeMs, 2500);
+    ASSERT_EQ(hard.previewTraceMs, 3000);
+    ASSERT_EQ(hard.bonkFlashMs, 500);
+    ASSERT_EQ(hard.exitRow, 4);
+    ASSERT_EQ(hard.exitCol, 6);
+    ASSERT_FLOAT_EQ(hard.previewShrinkPerRound, 0.75f);
 }
 
 // ============================================
@@ -144,42 +152,46 @@ void ghostRunnerHardConfigPresets(GhostRunnerTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Intro resets session on mount (score, stats, lives restored).
+ * Test: Intro resets session state completely.
  */
-void ghostRunnerIntroSeedsRng(GhostRunnerTestSuite* suite) {
+void ghostRunnerIntroResetsSession(GhostRunnerTestSuite* suite) {
     // Dirty the session before entering intro
-    suite->game_->getSession().score = 999;
+    suite->game_->getSession().cursorRow = 5;
+    suite->game_->getSession().cursorCol = 3;
     suite->game_->getSession().currentRound = 10;
     suite->game_->getSession().livesRemaining = 0;
-    suite->game_->getSession().perfectCount = 50;
-    suite->game_->getSession().missCount = 20;
+    suite->game_->getSession().score = 999;
+    suite->game_->getSession().bonkCount = 20;
+    suite->game_->getSession().stepsUsed = 50;
+    suite->game_->getSession().solutionLength = 10;
 
     // Re-enter intro (skipToState 0 = Intro)
     suite->game_->skipToState(suite->device_.pdn, 0);
+    suite->tick(1);
 
     auto& session = suite->game_->getSession();
-    ASSERT_EQ(session.score, 0);
+    ASSERT_EQ(session.cursorRow, 0);
+    ASSERT_EQ(session.cursorCol, 0);
+    ASSERT_EQ(session.currentDirection, DIR_RIGHT);
     ASSERT_EQ(session.currentRound, 0);
     ASSERT_EQ(session.livesRemaining, 3);  // restored to config.lives
-    ASSERT_EQ(session.perfectCount, 0);
-    ASSERT_EQ(session.goodCount, 0);
-    ASSERT_EQ(session.missCount, 0);
-    ASSERT_TRUE(session.currentPattern.empty());
+    ASSERT_EQ(session.score, 0);
+    ASSERT_EQ(session.bonkCount, 0);
+    ASSERT_EQ(session.stepsUsed, 0);
+    ASSERT_EQ(session.solutionLength, 0);
+    ASSERT_FALSE(session.mazeFlashActive);
 }
 
 /*
  * Test: Intro transitions to Show after timer expires.
- * Note: Since the intro timer is set before setPlatformClock in the test
- * fixture, the timer expires immediately on first loop. We just need a
- * few ticks to process the transition.
  */
 void ghostRunnerIntroTransitionsToShow(GhostRunnerTestSuite* suite) {
     State* state = suite->game_->getCurrentState();
     ASSERT_NE(state, nullptr);
     ASSERT_EQ(state->getStateId(), GHOST_INTRO);
 
-    // Advance a few ticks — intro timer set before clock, expires immediately
-    suite->tickWithTime(3, 100);
+    // Advance past 2s intro timer
+    suite->tickWithTime(25, 100);
 
     state = suite->game_->getCurrentState();
     ASSERT_EQ(state->getStateId(), GHOST_SHOW);
@@ -190,25 +202,57 @@ void ghostRunnerIntroTransitionsToShow(GhostRunnerTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Show state is entered and displays round info.
+ * Test: Show state generates maze with walls.
  */
-void ghostRunnerShowDisplaysRoundInfo(GhostRunnerTestSuite* suite) {
+void ghostRunnerShowGeneratesMaze(GhostRunnerTestSuite* suite) {
+    suite->game_->getConfig().rngSeed = 42;  // deterministic
     suite->game_->skipToState(suite->device_.pdn, 1);  // index 1 = Show
+    suite->tick(1);
 
     State* state = suite->game_->getCurrentState();
     ASSERT_EQ(state->getStateId(), GHOST_SHOW);
+
+    // Check that walls were generated (not all zeros)
+    auto& session = suite->game_->getSession();
+    auto& config = suite->game_->getConfig();
+
+    bool hasWalls = false;
+    for (int i = 0; i < config.rows * config.cols; i++) {
+        if (session.walls[i] != 0) {
+            hasWalls = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(hasWalls) << "Maze should have walls";
 }
 
 /*
- * Test: Show transitions to Gameplay after timer.
+ * Test: Show state finds solution path from start to exit.
+ */
+void ghostRunnerShowFindsSolution(GhostRunnerTestSuite* suite) {
+    suite->game_->getConfig().rngSeed = 42;
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Solution should be non-empty
+    ASSERT_GT(session.solutionLength, 0) << "Solution should exist";
+
+    // Solution should be reasonable length (not absurdly long)
+    ASSERT_LT(session.solutionLength, 50) << "Solution should be sane length";
+}
+
+/*
+ * Test: Show transitions to Gameplay after preview timers.
  */
 void ghostRunnerShowTransitionsToGameplay(GhostRunnerTestSuite* suite) {
-    suite->game_->skipToState(suite->device_.pdn, 1);  // index 1 = Show
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
 
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_SHOW);
 
-    // Advance past 1.5s show timer
-    suite->tickWithTime(20, 100);
+    // Advance past maze preview (4s) + trace preview (4s) = 8s total
+    suite->tickWithTime(90, 100);
 
     State* state = suite->game_->getCurrentState();
     ASSERT_EQ(state->getStateId(), GHOST_GAMEPLAY);
@@ -219,117 +263,156 @@ void ghostRunnerShowTransitionsToGameplay(GhostRunnerTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Notes scroll left with time in gameplay state.
+ * Test: PRIMARY button cycles direction clockwise.
  */
-void ghostRunnerGhostAdvancesWithTime(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().ghostSpeedMs = 10;
-    suite->game_->getConfig().notesPerRound = 3;
-    suite->game_->getConfig().rngSeed = 42;  // deterministic
-    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
-    suite->tick(1);
-
-    auto& session = suite->game_->getSession();
-    ASSERT_FALSE(session.currentPattern.empty());
-
-    // Record initial x position of first note
-    int initialX = session.currentPattern[0].xPosition;
-    ASSERT_EQ(initialX, 128);  // starts offscreen right
-
-    // Advance 5 steps worth of time (5 * 10ms = 50ms)
-    suite->tickWithTime(5, 15);
-
-    // Note should have moved left
-    ASSERT_LT(session.currentPattern[0].xPosition, initialX);
-}
-
-/*
- * Test: Correct press in hit zone — note graded GOOD or PERFECT, score increases.
- */
-void ghostRunnerCorrectPressInTargetZone(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().ghostSpeedMs = 10;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rounds = 1;
-    suite->game_->getConfig().rngSeed = 42;
-
+void ghostRunnerPrimaryCyclesDirection(GhostRunnerTestSuite* suite) {
     suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
-    ASSERT_EQ(session.currentPattern.size(), 1);
+    ASSERT_EQ(session.currentDirection, DIR_RIGHT);  // starts facing RIGHT
 
-    // Move note to hit zone (x=8, width=20 -> range 8-28)
-    session.currentPattern[0].xPosition = 15;  // center of hit zone
-    session.currentPattern[0].lane = Lane::UP;
-    session.currentPattern[0].type = NoteType::PRESS;
-
-    // Press PRIMARY button (UP lane)
+    // Press PRIMARY to cycle: RIGHT -> DOWN
     suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(1);
+    ASSERT_EQ(session.currentDirection, DIR_DOWN);
+
+    // Press PRIMARY to cycle: DOWN -> LEFT
+    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(1);
+    ASSERT_EQ(session.currentDirection, DIR_LEFT);
+
+    // Press PRIMARY to cycle: LEFT -> UP
+    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(1);
+    ASSERT_EQ(session.currentDirection, DIR_UP);
+
+    // Press PRIMARY to cycle: UP -> RIGHT (wrap around)
+    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(1);
+    ASSERT_EQ(session.currentDirection, DIR_RIGHT);
+}
+
+/*
+ * Test: SECONDARY button moves in current direction (valid move).
+ */
+void ghostRunnerSecondaryMovesValidDirection(GhostRunnerTestSuite* suite) {
+    suite->game_->getConfig().rngSeed = 42;
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show to generate maze
+    suite->tickWithTime(90, 100);  // advance to Gameplay
+
+    auto& session = suite->game_->getSession();
+    auto& config = suite->game_->getConfig();
+
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_GAMEPLAY);
+    ASSERT_EQ(session.cursorRow, config.startRow);
+    ASSERT_EQ(session.cursorCol, config.startCol);
+
+    int initialSteps = session.stepsUsed;
+    int initialRow = session.cursorRow;
+    int initialCol = session.cursorCol;
+
+    // Move in a valid direction (depends on maze, but we can try moving)
+    // If we hit a wall, the cursor won't move but bonk will trigger
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(3);
 
-    // Note should be graded
-    ASSERT_NE(session.currentPattern[0].grade, NoteGrade::NONE);
-    ASSERT_NE(session.currentPattern[0].grade, NoteGrade::MISS);
-
-    // Score should increase (50 for GOOD, 100 for PERFECT)
-    ASSERT_GT(session.score, 0) << "Score should increase on hit";
-    ASSERT_EQ(session.livesRemaining, 3) << "Lives should not decrease on hit";
+    // Either moved (stepsUsed increased) or bonked (lives decreased)
+    bool moved = (session.stepsUsed > initialSteps);
+    bool bonked = (session.bonkCount > 0);
+    ASSERT_TRUE(moved || bonked) << "SECONDARY should either move or bonk";
 }
 
 /*
- * Test: Incorrect press outside hit zone — graded MISS, loses life.
+ * Test: Hitting a wall triggers bonk (loses life, flashes maze).
  */
-void ghostRunnerIncorrectPressOutsideZone(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().ghostSpeedMs = 50;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rounds = 1;
+void ghostRunnerWallCollisionBonks(GhostRunnerTestSuite* suite) {
     suite->game_->getConfig().rngSeed = 42;
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
+    suite->game_->getConfig().lives = 3;
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
+    suite->tickWithTime(90, 100);  // advance to Gameplay
 
     auto& session = suite->game_->getSession();
-    ASSERT_EQ(session.currentPattern.size(), 1);
+    auto& config = suite->game_->getConfig();
 
-    // Move note far outside hit zone (hit zone: x=8, width=20 -> range 8-28)
-    session.currentPattern[0].xPosition = 60;  // far right of hit zone
-    session.currentPattern[0].lane = Lane::UP;
-    session.currentPattern[0].type = NoteType::PRESS;
+    // Manually set cursor position and walls to guarantee a wall collision
+    session.cursorRow = 0;
+    session.cursorCol = 0;
+    session.currentDirection = DIR_UP;  // try to go up from (0,0) -> out of bounds
+    session.livesRemaining = 3;
+    session.bonkCount = 0;
 
-    // Press PRIMARY button while note is outside hit zone
-    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Try to move UP from top-left corner (out of bounds = bonk)
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(3);
 
-    // Note should be graded MISS
-    ASSERT_EQ(session.currentPattern[0].grade, NoteGrade::MISS);
-    ASSERT_EQ(session.score, 0) << "Score should not increase on miss";
-    ASSERT_EQ(session.livesRemaining, 2) << "Should lose 1 life on miss";
-    ASSERT_EQ(session.missCount, 1);
+    // Should have bonked and lost a life
+    ASSERT_EQ(session.livesRemaining, 2) << "Should lose 1 life on bonk";
+    ASSERT_EQ(session.bonkCount, 1);
+    ASSERT_TRUE(session.mazeFlashActive) << "Maze should flash on bonk";
 }
 
 /*
- * Test: Note passing hit zone without press counts as miss, loses life.
+ * Test: Bonk flash timer makes maze visible temporarily.
  */
-void ghostRunnerGhostTimeoutCountsStrike(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().ghostSpeedMs = 5;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rounds = 1;
-    suite->game_->getConfig().rngSeed = 42;
-
+void ghostRunnerBonkFlashTimer(GhostRunnerTestSuite* suite) {
+    suite->game_->getConfig().bonkFlashMs = 500;
     suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
-    ASSERT_EQ(session.currentPattern.size(), 1);
 
-    // Note starts at x=128, hit zone at x=8. Let note scroll past hit zone.
-    // Advance enough for note to pass hit zone (128 - 8 = 120 pixels, 5ms/pixel = 600ms)
-    suite->tickWithTime(150, 5);
+    // Manually trigger bonk by setting direction to guaranteed wall
+    session.cursorRow = 0;
+    session.cursorCol = 0;
+    session.currentDirection = DIR_LEFT;  // try to go left from (0,0) -> out of bounds
 
-    // Note should be marked as missed (passed hit zone without being hit)
-    ASSERT_EQ(session.currentPattern[0].grade, NoteGrade::MISS);
-    ASSERT_FALSE(session.currentPattern[0].active);
-    ASSERT_EQ(session.missCount, 1) << "Timeout should count as miss";
-    ASSERT_EQ(session.livesRemaining, 2) << "Should lose 1 life";
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(3);
+
+    ASSERT_TRUE(session.mazeFlashActive);
+
+    // Advance past bonk flash timer (500ms)
+    suite->tickWithTime(10, 60);
+
+    ASSERT_FALSE(session.mazeFlashActive) << "Maze flash should expire";
+}
+
+/*
+ * Test: Reaching exit cell transitions to Evaluate.
+ */
+void ghostRunnerReachingExitTransitions(GhostRunnerTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+    auto& config = suite->game_->getConfig();
+
+    // Manually place cursor at exit
+    session.cursorRow = config.exitRow;
+    session.cursorCol = config.exitCol;
+
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_GAMEPLAY);
+
+    // Trigger the check (game checks in moveCallback, but we can force by setting and ticking)
+    suite->tick(5);
+
+    // Since we're already at exit, we need to trigger the transition manually by simulating arrival
+    // Let's instead move one cell away and then move to exit
+    session.cursorRow = config.exitRow - 1;
+    session.cursorCol = config.exitCol;
+    session.currentDirection = DIR_DOWN;
+
+    // Clear the wall between exit-1 and exit to allow movement
+    int idx = session.cursorRow * config.cols + session.cursorCol;
+    session.walls[idx] &= ~WALL_DOWN;  // remove down wall
+    idx = config.exitRow * config.cols + config.exitCol;
+    session.walls[idx] &= ~WALL_UP;  // remove up wall from exit
+
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(5);
+
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_EVALUATE);
 }
 
 // ============================================
@@ -337,18 +420,18 @@ void ghostRunnerGhostTimeoutCountsStrike(GhostRunnerTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Evaluate routes to next round (Show) when round completes with lives remaining.
+ * Test: Evaluate routes to next round when rounds remaining.
  */
-void ghostRunnerEvaluateRoutesToNextRound(GhostRunnerTestSuite* suite) {
+void ghostRunnerEvaluateAdvancesRound(GhostRunnerTestSuite* suite) {
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
     session.currentRound = 0;
-    session.livesRemaining = 3;  // still alive
-    session.score = 100;
+    session.livesRemaining = 2;
+    session.solutionLength = 5;
     config.rounds = 4;
 
-    suite->game_->skipToState(suite->device_.pdn, 3);  // index 3 = Evaluate
+    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
     suite->tick(3);
 
     ASSERT_EQ(session.currentRound, 1) << "Round should advance";
@@ -358,7 +441,7 @@ void ghostRunnerEvaluateRoutesToNextRound(GhostRunnerTestSuite* suite) {
 }
 
 /*
- * Test: Evaluate routes to Win when all rounds completed with passing score.
+ * Test: Evaluate routes to Win when all rounds completed.
  */
 void ghostRunnerEvaluateRoutesToWin(GhostRunnerTestSuite* suite) {
     auto& session = suite->game_->getSession();
@@ -366,11 +449,9 @@ void ghostRunnerEvaluateRoutesToWin(GhostRunnerTestSuite* suite) {
 
     session.currentRound = 3;   // Last round (0-indexed, rounds=4)
     session.livesRemaining = 2;
-    session.perfectCount = 20;
-    session.goodCount = 10;
-    session.missCount = 0;     // No misses = win in easy mode
+    session.solutionLength = 5;
+    session.bonkCount = 0;
     config.rounds = 4;
-    config.dualLaneChance = 0.0f;  // EASY mode
 
     suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
     suite->tick(3);
@@ -388,7 +469,7 @@ void ghostRunnerEvaluateRoutesToLose(GhostRunnerTestSuite* suite) {
 
     session.currentRound = 0;
     session.livesRemaining = 0;  // No lives left
-    session.missCount = 5;
+    session.solutionLength = 5;
     config.rounds = 4;
 
     suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
@@ -398,35 +479,90 @@ void ghostRunnerEvaluateRoutesToLose(GhostRunnerTestSuite* suite) {
     ASSERT_EQ(state->getStateId(), GHOST_LOSE);
 }
 
+/*
+ * Test: Evaluate calculates score correctly (optimal moves + zero-bonk bonus).
+ */
+void ghostRunnerEvaluateCalculatesScore(GhostRunnerTestSuite* suite) {
+    auto& session = suite->game_->getSession();
+
+    session.currentRound = 0;
+    session.livesRemaining = 3;
+    session.score = 0;
+    session.solutionLength = 8;  // 8 optimal moves
+    session.bonkCount = 0;  // zero bonks = bonus
+
+    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
+    suite->tick(1);
+
+    // Score = (8 * 100) + 500 bonus = 1300
+    ASSERT_EQ(session.score, 1300);
+}
+
+/*
+ * Test: Evaluate calculates score without bonus when bonks occurred.
+ */
+void ghostRunnerEvaluateScoreNoBonusOnBonk(GhostRunnerTestSuite* suite) {
+    auto& session = suite->game_->getSession();
+
+    session.currentRound = 0;
+    session.livesRemaining = 2;
+    session.score = 0;
+    session.solutionLength = 6;
+    session.bonkCount = 2;  // had bonks = no bonus
+
+    suite->game_->skipToState(suite->device_.pdn, 3);
+    suite->tick(1);
+
+    // Score = 6 * 100 = 600 (no bonus)
+    ASSERT_EQ(session.score, 600);
+}
+
 // ============================================
 // OUTCOME TESTS
 // ============================================
 
 /*
- * Test: Win state sets outcome to WON with score and correct hardMode.
+ * Test: Win state sets outcome to WON with correct hardMode flag.
  */
 void ghostRunnerWinSetsOutcome(GhostRunnerTestSuite* suite) {
-    suite->game_->getSession().score = 300;
-    suite->game_->getConfig().dualLaneChance = 0.0f;  // EASY mode
-    suite->game_->skipToState(suite->device_.pdn, 4);  // index 4 = Win
+    suite->game_->getSession().score = 2400;
+    suite->game_->getConfig().cols = 5;  // EASY mode
+    suite->game_->getConfig().rows = 3;
+    suite->game_->skipToState(suite->device_.pdn, 4);  // Win
+    suite->tick(1);
 
     const MiniGameOutcome& outcome = suite->game_->getOutcome();
     ASSERT_EQ(outcome.result, MiniGameResult::WON);
-    ASSERT_EQ(outcome.score, 300);
-    // Easy config: dualLaneChance=0.0 -> hardMode=false
-    ASSERT_FALSE(outcome.hardMode);
+    ASSERT_EQ(outcome.score, 2400);
+    ASSERT_FALSE(outcome.hardMode) << "5x3 maze is EASY mode";
+}
+
+/*
+ * Test: Win state detects hard mode correctly (7x5 maze).
+ */
+void ghostRunnerWinDetectsHardMode(GhostRunnerTestSuite* suite) {
+    suite->game_->getSession().score = 3000;
+    suite->game_->getConfig().cols = 7;  // HARD mode
+    suite->game_->getConfig().rows = 5;
+    suite->game_->skipToState(suite->device_.pdn, 4);  // Win
+    suite->tick(1);
+
+    const MiniGameOutcome& outcome = suite->game_->getOutcome();
+    ASSERT_EQ(outcome.result, MiniGameResult::WON);
+    ASSERT_TRUE(outcome.hardMode) << "7x5 maze is HARD mode";
 }
 
 /*
  * Test: Lose state sets outcome to LOST.
  */
 void ghostRunnerLoseSetsOutcome(GhostRunnerTestSuite* suite) {
-    suite->game_->getSession().score = 100;
-    suite->game_->skipToState(suite->device_.pdn, 5);  // index 5 = Lose
+    suite->game_->getSession().score = 500;
+    suite->game_->skipToState(suite->device_.pdn, 5);  // Lose
+    suite->tick(1);
 
     const MiniGameOutcome& outcome = suite->game_->getOutcome();
     ASSERT_EQ(outcome.result, MiniGameResult::LOST);
-    ASSERT_EQ(outcome.score, 100);
+    ASSERT_EQ(outcome.score, 500);
 }
 
 // ============================================
@@ -441,7 +577,7 @@ void ghostRunnerStandaloneLoopsToIntro(GhostRunnerTestSuite* suite) {
     suite->game_->skipToState(suite->device_.pdn, 4);  // Win
 
     // Advance past 3s win display timer
-    suite->tickWithTime(40, 100);
+    suite->tickWithTime(35, 100);
 
     State* state = suite->game_->getCurrentState();
     ASSERT_EQ(state->getStateId(), GHOST_INTRO);
@@ -470,31 +606,35 @@ void ghostRunnerManagedModeReturns(GhostRunnerManagedTestSuite* suite) {
     ASSERT_NE(gr, nullptr);
     ASSERT_TRUE(gr->getConfig().managedMode);
 
-    // Configure for quick win
-    gr->getConfig().ghostSpeedMs = 5;
-    gr->getConfig().notesPerRound = 1;
+    // Configure for quick win (1 round, small maze)
     gr->getConfig().rounds = 1;
     gr->getConfig().rngSeed = 42;
 
     // Advance past intro timer (2s)
     suite->tickWithTime(25, 100);
-
-    // Should be in Show state
     ASSERT_EQ(gr->getCurrentState()->getStateId(), GHOST_SHOW);
 
-    // Advance past show timer (1.5s)
-    suite->tickWithTime(20, 100);
-
-    // Should be in Gameplay
+    // Advance past show timers (4s + 4s = 8s)
+    suite->tickWithTime(90, 100);
     ASSERT_EQ(gr->getCurrentState()->getStateId(), GHOST_GAMEPLAY);
 
-    // Move note into hit zone and press
+    // Manually place cursor at exit and trigger transition
     auto& session = gr->getSession();
-    session.currentPattern[0].xPosition = 15;  // center of hit zone
-    session.currentPattern[0].lane = Lane::UP;
+    auto& config = gr->getConfig();
 
-    // Press button in hit zone
-    suite->player_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Move cursor one step before exit
+    session.cursorRow = config.exitRow - 1;
+    session.cursorCol = config.exitCol;
+    session.currentDirection = DIR_DOWN;
+
+    // Clear walls to allow movement to exit
+    int idx = session.cursorRow * config.cols + session.cursorCol;
+    session.walls[idx] &= ~WALL_DOWN;
+    idx = config.exitRow * config.cols + config.exitCol;
+    session.walls[idx] &= ~WALL_UP;
+
+    // Move to exit
+    suite->player_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tickWithTime(5, 100);
 
     // Should be in Evaluate, then Win
@@ -514,106 +654,90 @@ void ghostRunnerManagedModeReturns(GhostRunnerManagedTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Press at exact hit zone start boundary counts as hit.
+ * Test: Cursor cannot move out of bounds (bonks instead).
  */
-void ghostRunnerPressAtZoneStartBoundary(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().hitZoneWidthPx = 20;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rngSeed = 42;
-
+void ghostRunnerOutOfBoundsBonks(GhostRunnerTestSuite* suite) {
     suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
-    int initialScore = session.score;
+    auto& config = suite->game_->getConfig();
 
-    // Position note at exact hit zone start (x=8)
-    session.currentPattern[0].xPosition = 8;
-    session.currentPattern[0].lane = Lane::UP;
-    session.currentPattern[0].type = NoteType::PRESS;
+    // Place cursor at top-left corner
+    session.cursorRow = 0;
+    session.cursorCol = 0;
+    session.livesRemaining = 3;
+    session.bonkCount = 0;
 
-    // Press PRIMARY button
-    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Try to move UP (out of bounds)
+    session.currentDirection = DIR_UP;
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(3);
 
-    EXPECT_NE(session.currentPattern[0].grade, NoteGrade::MISS) << "Press at zone start should not be miss";
-    EXPECT_GT(session.score, initialScore) << "Score should increase";
-    EXPECT_EQ(session.livesRemaining, 3) << "No life should be lost";
+    ASSERT_EQ(session.cursorRow, 0) << "Cursor should not move out of bounds";
+    ASSERT_EQ(session.bonkCount, 1);
+    ASSERT_EQ(session.livesRemaining, 2);
+
+    // Try to move LEFT (out of bounds)
+    session.currentDirection = DIR_LEFT;
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(3);
+
+    ASSERT_EQ(session.cursorCol, 0) << "Cursor should not move out of bounds";
+    ASSERT_EQ(session.bonkCount, 2);
+    ASSERT_EQ(session.livesRemaining, 1);
 }
 
 /*
- * Test: Press at exact hit zone end boundary counts as hit.
+ * Test: Losing all lives during gameplay transitions to Evaluate then Lose.
  */
-void ghostRunnerPressAtZoneEndBoundary(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().hitZoneWidthPx = 20;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rngSeed = 42;
-
+void ghostRunnerZeroLivesTransitionsToLose(GhostRunnerTestSuite* suite) {
     suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
-    int initialScore = session.score;
 
-    // Position note at exact hit zone end (x=8 + width=20 = 28)
-    session.currentPattern[0].xPosition = 28;
-    session.currentPattern[0].lane = Lane::UP;
-    session.currentPattern[0].type = NoteType::PRESS;
-
-    // Press PRIMARY button
-    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    suite->tick(3);
-
-    EXPECT_NE(session.currentPattern[0].grade, NoteGrade::MISS) << "Press at zone end should not be miss";
-    EXPECT_GT(session.score, initialScore) << "Score should increase";
-    EXPECT_EQ(session.livesRemaining, 3) << "No life should be lost";
-}
-
-/*
- * Test: Having exactly 1 life remaining doesn't lose (only 0 causes loss).
- */
-void ghostRunnerExactStrikesEqualAllowed(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().rounds = 5;
-
-    auto& session = suite->game_->getSession();
-    session.currentRound = 0;
-    session.livesRemaining = 1;  // Exactly 1 life left
-
-    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
-    suite->tick(3);
-
-    // 1 life remaining -> should continue to next round, not lose
-    State* state = suite->game_->getCurrentState();
-    EXPECT_NE(state->getStateId(), GHOST_LOSE) << "Should not lose with 1 life remaining";
-    EXPECT_EQ(state->getStateId(), GHOST_SHOW) << "Should advance to next round";
-    EXPECT_EQ(session.currentRound, 1);
-}
-
-/*
- * Test: Note timeout with exactly 1 life remaining reduces to 0 lives, triggers lose.
- */
-void ghostRunnerTimeoutAtExactMissesAllowed(GhostRunnerTestSuite* suite) {
-    suite->game_->getConfig().ghostSpeedMs = 5;
-    suite->game_->getConfig().notesPerRound = 1;
-    suite->game_->getConfig().rounds = 4;
-    suite->game_->getConfig().rngSeed = 42;
-
-    auto& session = suite->game_->getSession();
+    session.cursorRow = 0;
+    session.cursorCol = 0;
     session.livesRemaining = 1;  // Only 1 life left
+    session.currentDirection = DIR_UP;
 
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Let note pass hit zone without pressing (timeout = miss, loses 1 life -> 0 lives)
-    suite->tickWithTime(150, 5);
-
-    // After timeout, should have 0 lives and transition to evaluate then lose
+    // Bonk to lose last life
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(5);
 
-    EXPECT_EQ(session.livesRemaining, 0);
-    State* state = suite->game_->getCurrentState();
-    EXPECT_TRUE(state->getStateId() == GHOST_EVALUATE || state->getStateId() == GHOST_LOSE)
-        << "Should transition to evaluate/lose with 0 lives";
+    ASSERT_EQ(session.livesRemaining, 0);
+
+    // Should transition to Evaluate
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_EVALUATE);
+
+    suite->tick(5);
+
+    // Then to Lose
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), GHOST_LOSE);
+}
+
+/*
+ * Test: Session reset clears walls and solution arrays.
+ */
+void ghostRunnerSessionResetClearsArrays(GhostRunnerTestSuite* suite) {
+    auto& session = suite->game_->getSession();
+
+    // Dirty session arrays
+    for (int i = 0; i < 10; i++) {
+        session.walls[i] = 0xFF;
+        session.solutionPath[i] = i;
+    }
+    session.solutionLength = 10;
+
+    session.reset();
+
+    // Check walls cleared
+    for (int i = 0; i < 10; i++) {
+        ASSERT_EQ(session.walls[i], 0);
+        ASSERT_EQ(session.solutionPath[i], 0);
+    }
+    ASSERT_EQ(session.solutionLength, 0);
 }
 
 // ============================================

@@ -27,11 +27,13 @@ TEST_F(DemoPlaytestSuite, SignalEchoHardPlaytest) {
 // and need complete rewrite for new memory maze mechanics.
 
 TEST_F(DemoPlaytestSuite, DISABLED_GhostRunnerEasyPlaytest) {
-    ghostRunnerEasyPlaytest(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerEasyPlaytest(this);
 }
 
 TEST_F(DemoPlaytestSuite, DISABLED_GhostRunnerHardPlaytest) {
-    ghostRunnerHardPlaytest(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerHardPlaytest(this);
 }
 
 // ============================================

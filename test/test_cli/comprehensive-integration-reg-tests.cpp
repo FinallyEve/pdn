@@ -43,23 +43,28 @@ TEST_F(ComprehensiveIntegrationTestSuite, SignalEchoRapidButtonPresses) {
 // New API uses maze navigation (cols, rows, previewMazeMs, previewTraceMs).
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerEasyWinUnlocksButton) {
-        ghostRunnerEasyWinUnlocksButton(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerEasyWinUnlocksButton(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerHardWinUnlocksColorProfile) {
-        ghostRunnerHardWinUnlocksColorProfile(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerHardWinUnlocksColorProfile(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerLossNoRewards) {
-        ghostRunnerLossNoRewards(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerLossNoRewards(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerBoundaryPress) {
-        ghostRunnerBoundaryPress(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerBoundaryPress(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerRapidPresses) {
-        ghostRunnerRapidPresses(this);
+    // TODO(#220): Rewrite for Wave 18 maze API
+    // ghostRunnerRapidPresses(this);
 }
 
 // ============================================
@@ -107,15 +112,18 @@ TEST_F(ComprehensiveIntegrationTestSuite, FirewallDecryptLossNoRewards) {
 // New API uses BioShock-inspired wire tiles (tileType[], tileRotation[], pathOrder[], flowState).
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathEasyWinUnlocksButton) {
-    cipherPathEasyWinUnlocksButton(this);
+    // TODO(#242): Rewrite for Wave 18 wire routing API
+    // cipherPathEasyWinUnlocksButton(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathHardWinUnlocksColorProfile) {
-    cipherPathHardWinUnlocksColorProfile(this);
+    // TODO(#242): Rewrite for Wave 18 wire routing API
+    // cipherPathHardWinUnlocksColorProfile(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathLossNoRewards) {
-    cipherPathLossNoRewards(this);
+    // TODO(#242): Rewrite for Wave 18 wire routing API
+    // cipherPathLossNoRewards(this);
 }
 
 // ============================================
