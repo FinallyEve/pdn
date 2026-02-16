@@ -194,16 +194,18 @@ All 7 minigames follow a common structure:
 
 ## Signal Echo
 
-**Genre:** Memory/Pattern Replication (Simon Says)
+**Genre:** Memory/Arrow Sequence (Simon Says)
 **App ID:** 2 | **GameType:** `SIGNAL_ECHO` | **Konami:** UP (0)
+
+**Updated:** Wave 18 redesign (#246) — visual arrow sequence display with slot-based UI
 
 ### Rules
 
-1. Device plays a sequence of UP/DOWN signals
-2. Player reproduces sequence using buttons
-3. Correct sequence advances to next round
-4. Wrong input counts as mistake
-5. Win = complete all rounds without exceeding mistake limit
+1. **Show phase:** Device displays a sequence of UP/DOWN arrows in slots (one arrow revealed at a time)
+2. **Input phase:** Player reproduces the full sequence from memory using buttons
+3. Correct sequence = advance to next round
+4. Wrong input = instant loss (no mistake tolerance)
+5. Win = complete all rounds perfectly
 
 ### Controls
 
@@ -214,65 +216,70 @@ All 7 minigames follow a common structure:
 
 | Parameter | Easy | Hard |
 |-----------|------|------|
-| `sequenceLength` | 4 | 5 |
-| `numSequences` | 3 | 5 |
-| `displaySpeedMs` | 600 | 400 |
-| `allowedMistakes` | 2 | 1 |
+| `sequenceLength` | 7 arrows | 11 arrows |
+| `numSequences` (rounds) | 3 | 5 |
+| `displaySpeedMs` | 550 | 400 |
+| `allowedMistakes` | 0 | 0 |
 | `cumulative` | false | false |
 | `timeLimitMs` | 0 (none) | 0 (none) |
 
 ### Scoring
 
 - +1 point per correct input
-- Mistakes decrement strike counter
-- Final score = total correct inputs
+- No mistakes allowed — one error ends the game
+- Final score = total correct inputs across all rounds
 
 ### Win/Loss Display
 
-- **Win:** "ACCESS GRANTED"
-- **Loss:** "SIGNAL LOST"
+- **Win:** "ACCESS GRANTED" + rainbow LED sweep
+- **Loss:** "SIGNAL LOST" + red fade
 
 ### Strategy Tips
 
-- Watch the entire sequence before responding
-- Use rhythm to memorize patterns
-- Hard mode has 5 rounds with only 1 mistake allowed
+- Watch carefully during show phase (arrows reveal sequentially)
+- Easy: 7-slot grid with larger arrow glyphs
+- Hard: 11-slot grid with compressed arrow glyphs
+- No mistake tolerance — perfection required
 
 ---
 
 ## Ghost Runner
 
-**Genre:** Reaction/Timing
+**Genre:** Memory/Maze Navigation
 **App ID:** 4 | **GameType:** `GHOST_RUNNER` | **Konami:** START (6)
+
+**Updated:** Wave 18 redesign (#220) — transformed from rhythm game to memory maze
 
 ### Rules
 
-1. Ghost scrolls across screen (position 0 → `screenWidth`)
-2. Press PRIMARY when ghost enters target zone
-3. Hit = advance round; Miss = strike
-4. Miss conditions: outside zone OR timeout
-5. Win = complete all rounds without exceeding miss limit
+1. **Preview Phase:** Maze displayed with walls visible, then solution path traces from start to exit
+2. **Navigation Phase:** Maze disappears, player navigates from memory using button inputs
+3. Each round generates a new random maze (recursive backtracker algorithm)
+4. Player must reach exit without hitting walls (bonks)
+5. Win = complete all rounds without exceeding bonk limit
 
 ### Controls
 
-- **PRIMARY** = Attempt catch
+- **PRIMARY** = Move forward in current direction
+- **SECONDARY** = Rotate 90° clockwise
 
 ### Difficulty Parameters
 
 | Parameter | Easy | Hard |
 |-----------|------|------|
-| `ghostSpeedMs` | 50 | 30 |
-| `targetZoneStart` | 35 | 42 |
-| `targetZoneEnd` | 65 | 58 |
-| **Zone Width** | **30 units** | **16 units** |
+| `cols` | 5 | 7 |
+| `rows` | 3 | 5 |
 | `rounds` | 4 | 6 |
-| `missesAllowed` | 3 | 1 |
-| `screenWidth` | 100 | 100 |
+| `lives` (bonks allowed) | 3 | 2 |
+| `previewMazeMs` | 4000 | 3000 |
+| `previewTraceMs` | 4000 | 2500 |
+| `bonkFlashMs` | 1000 | 800 |
 
 ### Scoring
 
-- +100 points per successful catch
-- Misses decrement strike counter
+- +100 points per round completed
+- Bonks decrement lives counter
+- Bonk penalty flashes maze briefly
 
 ### Win/Loss Display
 
@@ -281,24 +288,28 @@ All 7 minigames follow a common structure:
 
 ### Strategy Tips
 
-- Watch the ghost's speed
-- Wait for the zone indicator to light up
-- Hard mode has narrower zone (16 vs 30 units) and faster speed
+- Memorize the solution path during preview
+- Easy mode has smaller maze (5×3) with longer preview times
+- Hard mode has larger maze (7×5) and shorter preview
+- Preview time shrinks each round (0.85× multiplier)
 
 ---
 
 ## Spike Vector
 
-**Genre:** Reaction/Dodging
+**Genre:** Reaction/Side-scrolling Gauntlet
 **App ID:** 5 | **GameType:** `SPIKE_VECTOR` | **Konami:** DOWN (1)
+
+**Updated:** Wave 18 redesign (#223) — side-scrolling wall formation system with progressive difficulty
 
 ### Rules
 
-1. Wall with a gap advances toward player
-2. Player moves cursor UP/DOWN to align with gap
-3. Wall arrives = collision check
-4. Cursor at gap = dodge; elsewhere = hit
-5. Win = survive all waves without exceeding hit limit
+1. Formation of spike walls scrolls left across screen (side-scrolling)
+2. Each wall has a gap in one of 5/7 lanes
+3. Player moves cursor UP/DOWN to align with gaps
+4. When wall reaches player position = collision check
+5. Player at gap = dodge; elsewhere = hit
+6. Win = survive all 5 levels; each level increases speed and wall count
 
 ### Controls
 
@@ -309,16 +320,19 @@ All 7 minigames follow a common structure:
 
 | Parameter | Easy | Hard |
 |-----------|------|------|
-| `approachSpeedMs` | 40 | 20 |
-| `numPositions` | 5 lanes | 7 lanes |
-| `waves` | 5 | 8 |
+| `numPositions` (lanes) | 5 | 7 |
+| `levels` | 5 | 5 |
+| `baseWallCount` | 5 (level 1) | 8 (level 1) |
+| `wallCountIncrement` | +1 per level | +1 per level |
+| `baseSpeedLevel` | 1 (60ms/px) | 5 (30ms/px) |
+| `speedLevelIncrement` | +1 per level | +1 per level |
 | `hitsAllowed` | 3 | 1 |
-| `trackLength` | 100 | 100 |
 
 ### Scoring
 
 - +100 points per successful dodge
-- Hits decrement strike counter
+- Hits decrement health counter
+- Score accumulates across all levels
 
 ### Win/Loss Display
 
@@ -327,23 +341,26 @@ All 7 minigames follow a common structure:
 
 ### Strategy Tips
 
-- Track which lane the gap is in
-- Move early - walls approach fast
-- Hard mode has 7 lanes (more to track) and faster approach
+- Each level gets faster and has more walls (progressive difficulty)
+- Easy: starts slow (60ms/pixel), 5 lanes, 5-8 walls per level
+- Hard: starts fast (30ms/pixel), 7 lanes, 8-12 walls per level
+- Gap positioning is randomized per wall (max distance constraint)
 
 ---
 
 ## Firewall Decrypt
 
-**Genre:** Pattern Recognition/Puzzle
+**Genre:** Pattern Recognition/Terminal Breach
 **App ID:** 3 | **GameType:** `FIREWALL_DECRYPT` | **Konami:** LEFT (2)
+
+**Updated:** Wave 18 redesign (#256) — expanded candidate list with "needle in haystack" difficulty
 
 ### Rules
 
 1. Target MAC address displayed at top
-2. Scrollable list of candidates below (includes target + decoys)
+2. Scrollable list of candidates below (includes target + many decoys)
 3. Player scrolls with PRIMARY, confirms with SECONDARY
-4. Correct match = advance round; wrong = instant loss
+4. Correct match = advance round; wrong = mistake penalty or instant loss
 5. Win = identify target in all rounds
 
 ### Controls
@@ -355,15 +372,16 @@ All 7 minigames follow a common structure:
 
 | Parameter | Easy | Hard |
 |-----------|------|------|
-| `numCandidates` | 5 | 10 |
+| `numCandidates` | 15 | 40 |
 | `numRounds` | 3 | 4 |
-| `similarity` | 0.2 (obvious) | 0.5+ (subtle) |
-| `timeLimitMs` | 0 (none) | 15000 (15s) |
+| `similarity` | 0.5 (confusing) | 0.7 (very similar) |
+| `timeLimitMs` | 0 (none) | 12000 (12s, depletes per round) |
+| `mistakesAllowed` | 3 | 1 |
 
 ### Scoring
 
 - Points based on speed and decoy similarity
-- Exact formula: implementation-dependent
+- Faster identification = higher score
 
 ### Win/Loss Display
 
@@ -372,42 +390,49 @@ All 7 minigames follow a common structure:
 
 ### Strategy Tips
 
-- Compare byte-by-byte (MAC format: `XX:XX:XX:XX:XX:XX`)
-- Hard mode has subtle differences (1-2 bytes changed)
-- 15-second time limit on hard mode
+- Compare byte-by-byte (MAC format: `XX:XX:XX:XX`)
+- Easy: 15 candidates with 50% similarity, unlimited time
+- Hard: 40 candidates (large haystack) with 70% similarity, 12s timer
+- Timer depletes each round in hard mode
 
 ---
 
 ## Cipher Path
 
-**Genre:** Puzzle/Pathfinding
+**Genre:** Puzzle/Wire Rotation (BioShock-inspired)
 **App ID:** 6 | **GameType:** `CIPHER_PATH` | **Konami:** RIGHT (3)
+
+**Updated:** Wave 18 redesign (#242) — wire routing puzzle with real-time electricity flow
 
 ### Rules
 
-1. Linear path from start (0) to exit (`gridSize-1`)
-2. Each position has cipher: correct direction is UP or DOWN
-3. Player guesses direction; correct = advance, wrong = waste move
-4. Win = reach exit within move budget
-5. Loss = moves exhausted before exit
+1. Grid of scrambled wire tiles connects input terminal to output terminal
+2. Tiles include: straight wires, elbows, T-junctions, crosses, endpoints
+3. **Rotation phase:** Player rotates tiles to reconnect the circuit
+4. **Flow phase:** Electricity flows pixel-by-pixel through connected path
+5. Flow reaches dead end or wrong rotation = loss
+6. Flow successfully reaches output = win
 
 ### Controls
 
-- **PRIMARY** = Guess UP at current position
-- **SECONDARY** = Guess DOWN at current position
+- **PRIMARY** = Move cursor to next tile on path
+- **SECONDARY** = Rotate current tile 90° clockwise
 
 ### Difficulty Parameters
 
 | Parameter | Easy | Hard |
 |-----------|------|------|
-| `gridSize` | 6 | 10 |
-| `moveBudget` | 12 (2x) | 14 (1.4x) |
-| `rounds` | 2 | 4 |
+| `cols` | 5 | 7 |
+| `rows` | 4 | 5 |
+| `rounds` | 1 | 3 |
+| `flowSpeedMs` (ms/pixel) | 200 (~1.8s/tile) | 80 (~0.7s/tile) |
+| `flowSpeedDecayMs` | 0 (N/A) | 10 (gets faster each round) |
+| `noisePercent` | 30% | 40% |
 
 ### Scoring
 
-- Based on efficiency (moves remaining)
-- Exact formula: implementation-dependent
+- Based on completion time and rounds completed
+- Penalty for failed attempts
 
 ### Win/Loss Display
 
@@ -416,9 +441,10 @@ All 7 minigames follow a common structure:
 
 ### Strategy Tips
 
-- Each wrong guess wastes a move
-- Easy mode: generous budget (2x path length)
-- Hard mode: tight budget (1.4x path length)
+- Trace the path from input to output first
+- Easy mode: single 5×4 puzzle, ~20s flow duration
+- Hard mode: 3 rounds on 7×5 grid, flow accelerates each round (80→70→60 ms/pixel)
+- Noise wires are visual distractors (not part of path)
 
 ---
 
@@ -471,16 +497,19 @@ All 7 minigames follow a common structure:
 
 ## Breach Defense
 
-**Genre:** Reaction/Defense
+**Genre:** Reaction/Lane Defense (Pong × Invaders)
 **App ID:** 8 | **GameType:** `BREACH_DEFENSE` | **Konami:** A (5)
+
+**Updated:** Wave 18 redesign (#231) — multi-lane threat defense with overlapping attacks
 
 ### Rules
 
-1. Threat approaches in random lane
-2. Player positions shield with UP/DOWN buttons
-3. Threat arrives = collision check
+1. Threats spawn in random lanes and advance toward defense line
+2. Player moves shield UP/DOWN to position in lanes
+3. When threat reaches defense line = collision check
 4. Shield at threat lane = block; elsewhere = breach
-5. Win = block all threats; Loss = breaches exceed limit
+5. **Multiple threats on screen at once** (up to 2-3 simultaneous)
+6. Win = block all threats; Loss = breaches exceed limit
 
 ### Controls
 
@@ -496,11 +525,13 @@ All 7 minigames follow a common structure:
 | `threatDistance` | 100 | 100 |
 | `totalThreats` | 6 | 12 |
 | `missesAllowed` | 3 | 1 |
+| `spawnIntervalMs` | 1500 | 700 |
+| `maxOverlap` | 2 | 3 |
 
 ### Scoring
 
 - +100 points per successful block
-- Breaches decrement strike counter
+- Breaches decrement health counter
 
 ### Win/Loss Display
 
@@ -509,9 +540,10 @@ All 7 minigames follow a common structure:
 
 ### Strategy Tips
 
-- Track which lane the threat is approaching
-- Move shield early - threats approach fast
-- Hard mode: 5 lanes (more positions) + faster threats
+- Track multiple threats simultaneously (overlapping attacks)
+- Easy: 3 lanes, 2 max on screen, spawns every 1.5s
+- Hard: 5 lanes, 3 max on screen, spawns every 0.7s (rapid-fire)
+- Threats move independently — prioritize based on proximity
 
 ---
 
@@ -562,15 +594,80 @@ uint8_t hardAttempts = player->getHardAttempts(GameType::GHOST_RUNNER);
 
 ## Minigame Selection Guide
 
-| Game | Best For | Skill Focus |
-|------|----------|-------------|
-| **Signal Echo** | Memory | Pattern recognition |
-| **Ghost Runner** | Timing | Reaction speed |
-| **Spike Vector** | Coordination | Multi-tasking |
-| **Firewall Decrypt** | Observation | Detail focus |
-| **Cipher Path** | Logic | Resource management |
-| **Exploit Sequencer** | Precision | Timing accuracy |
-| **Breach Defense** | Awareness | Spatial tracking |
+| Game | Best For | Skill Focus | Wave 18 Status |
+|------|----------|-------------|----------------|
+| **Signal Echo** | Memory | Pattern recognition | Redesigned (#246) |
+| **Ghost Runner** | Spatial Memory | Maze navigation | Redesigned (#220) |
+| **Spike Vector** | Reflexes | Lane dodging | Redesigned (#223) |
+| **Firewall Decrypt** | Observation | Detail focus | Redesigned (#256) |
+| **Cipher Path** | Puzzle Logic | Wire routing | Redesigned (#242) |
+| **Exploit Sequencer** | Timing | QTE precision | Unchanged |
+| **Breach Defense** | Multitasking | Lane defense | Redesigned (#231) |
+
+---
+
+## Wave 18/19 Changes Summary
+
+### Wave 18 (Visual Redesigns - PRs #220, #223, #231, #242, #246, #256, #257)
+
+All 7 minigames underwent major visual and mechanical redesigns to improve gameplay variety and accessibility:
+
+**Signal Echo (#246)**
+- **Old:** Timing-based rhythm game
+- **New:** Arrow sequence memory game (Simon Says)
+- **Changes:** Slot-based visual layout, 7-arrow (easy) / 11-arrow (hard) sequences, no mistake tolerance
+
+**Ghost Runner (#220)**
+- **Old:** Rhythm/timing ghost-catching game
+- **New:** Memory maze navigation
+- **Changes:** Procedural maze generation (recursive backtracker), preview-then-navigate gameplay, maze sizes 5×3 (easy) / 7×5 (hard)
+
+**Spike Vector (#223)**
+- **Old:** Single-wall dodging
+- **New:** Side-scrolling wall gauntlet with progressive difficulty
+- **Changes:** 5 levels with increasing speed and wall count, walls scroll from right to left, 5-lane (easy) / 7-lane (hard)
+
+**Cipher Path (#242)**
+- **Old:** Linear pathfinding with move budget
+- **New:** BioShock-inspired wire rotation puzzle
+- **Changes:** Grid-based wire tiles (straight, elbow, T, cross), real-time electricity flow, rotation controls, 5×4 (easy) / 7×5 (hard)
+
+**Firewall Decrypt (#256)**
+- **Old:** Small candidate list (5-10 MACs)
+- **New:** "Needle in haystack" with large candidate pools
+- **Changes:** 15 candidates (easy) / 40 candidates (hard), increased similarity (0.5 / 0.7), depleting timer in hard mode (12s→10s→8s→6s)
+
+**Breach Defense (#231)**
+- **Old:** Single threat per wave
+- **New:** Pong × Invaders combo defense with overlapping threats
+- **Changes:** Multiple threats on screen (2-3 simultaneous), independent threat movement, rapid spawning (1.5s / 0.7s intervals), 3-lane (easy) / 5-lane (hard)
+
+**Exploit Sequencer**
+- No redesign in Wave 18 (already QTE-based)
+
+**KonamiMetaGame / The Cipher Wall (#257)**
+- Visual redesign for code entry puzzle (not detailed in GAME-MECHANICS.md)
+
+### Wave 19 (Fixes and Infrastructure - PRs #283, #284, #287, #288, #292, #294)
+
+**Bug Fixes:**
+- Fixed FdnDetected handshake deadlock (#292)
+- Fixed "pure virtual method called" crash (#292)
+- Fixed cable disconnect handling
+
+**Testing:**
+- Disabled 61 obsolete integration tests pending Wave 18 API updates (#284)
+- Multi-player integration test harness (#288)
+- E2E demo walkthrough validation (#283)
+
+**Documentation:**
+- Updated demo scripts for all 7 redesigns (#287)
+- Post-redesign code cleanup (#294)
+
+**Architecture Impact:**
+- All minigames have new state machine patterns and config structures
+- Old APIs (rhythm game timing, binary cipher paths) completely replaced
+- Demo scripts updated to match new gameplay mechanics
 
 ---
 
@@ -580,7 +677,8 @@ uint8_t hardAttempts = player->getHardAttempts(GameType::GHOST_RUNNER);
 - [STATE-MACHINES.md](STATE-MACHINES.md) - Minigame state flows
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design
 - [HACKATHON-REPORT.md](HACKATHON-REPORT.md) - Development history
+- [CLI-PLAYTHROUGH-REPORT.md](CLI-PLAYTHROUGH-REPORT.md) - Testing results and Wave 19 bug fixes
 
 ---
 
-*Last Updated: 2026-02-14*
+*Last Updated: 2026-02-16 (Wave 18/19 redesigns)*

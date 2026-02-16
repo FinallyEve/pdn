@@ -617,4 +617,25 @@ TEST_F(MyGameTestSuite, transitionsFromIntroToShow) {
 
 ---
 
-*Last Updated: 2026-02-14*
+## Wave 18 Minigame Redesigns
+
+**Note:** The state machine diagrams above represent the **structural patterns** for each minigame. Wave 18 (PRs #220, #223, #231, #242, #246, #256, #257) redesigned the **gameplay mechanics** within these states while preserving the overall state flow structure:
+
+- **Intro → Show → Gameplay → Evaluate → Win/Lose** pattern remains consistent
+- Gameplay **mechanics** changed significantly (see [GAME-MECHANICS.md](GAME-MECHANICS.md) for details)
+- State **implementations** overhauled (new rendering, input handling, win conditions)
+- Config structures expanded to support new difficulty parameters
+
+**Examples of mechanical changes:**
+- Ghost Runner: Gameplay now generates and navigates mazes (was rhythm-based timing)
+- Cipher Path: Gameplay rotates wire tiles (was linear pathfinding)
+- Spike Vector: Gameplay handles side-scrolling wall formations (was single-wall approach)
+- Signal Echo: Show phase reveals arrow slots sequentially (was timing-based display)
+
+The state transition logic and lifecycle methods (`onStateMounted`, `onStateLoop`, `onStateDismounted`) remain unchanged — only the **content** within each state evolved.
+
+For detailed game rules and parameter changes, see [GAME-MECHANICS.md](GAME-MECHANICS.md#wave-1819-changes-summary).
+
+---
+
+*Last Updated: 2026-02-16 (Wave 18 mechanics note)*

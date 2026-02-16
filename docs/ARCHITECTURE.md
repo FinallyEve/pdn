@@ -669,4 +669,55 @@ pio device monitor              # View serial output
 
 ---
 
-*Last Updated: 2026-02-14*
+## Wave 18/19 Architecture Changes
+
+### Wave 18 Minigame Redesigns
+
+All 7 minigames underwent complete mechanical redesigns, affecting:
+
+**State Machine Changes:**
+- Ghost Runner: Added maze generation states, preview/trace/navigation phases
+- Spike Vector: Level-based progression (5 levels per difficulty)
+- Cipher Path: Wire rotation and electricity flow states
+- Firewall Decrypt: Retry prompt overlay, mistake tracking
+- Signal Echo: Slot-based arrow display rendering
+- Breach Defense: Multi-threat tracking, overlapping spawn logic
+
+**Config Structure Evolution:**
+- All games moved to config-based difficulty tuning (easy/hard presets)
+- Removed hardcoded magic numbers from state implementations
+- Centralized difficulty parameters in `*-resources.hpp` files
+
+**Session State Expansion:**
+- More complex per-game session tracking (mazes, wire grids, threat arrays)
+- Eliminated shared state between rounds (each round regenerates from scratch)
+- Added visual feedback flags (bonkFlashActive, retryPromptActive, etc.)
+
+**Driver Usage:**
+- Heavier use of Display driver for complex graphics (maze walls, wire tiles, progress bars)
+- NativeDisplayDriver expanded to support XBM bitmap rendering for testing
+- Braille display mirror in CLI for visual debugging
+
+### Wave 19 Infrastructure Improvements
+
+**Testing:**
+- Disabled 61 obsolete integration tests (#284) — pending rewrite for new APIs
+- Added multi-player test harness (#288)
+- E2E demo validation framework (#283)
+
+**Bug Fixes:**
+- FdnDetected handshake deadlock resolved (#292)
+- "pure virtual method called" crash fixed (#292)
+- Cable disconnect handling improved
+
+**Code Quality:**
+- Post-redesign cleanup (#294): removed dead code, fixed warnings
+- Eliminated duplicate `seedRng()` calls from intro states (#167)
+
+**Documentation:**
+- Demo scripts updated for all 7 games (#287)
+- Binary size regression report (Wave 18 added ~15KB to firmware)
+
+---
+
+*Last Updated: 2026-02-16 (Wave 18/19 architecture changes)*
