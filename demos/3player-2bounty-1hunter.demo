@@ -1,0 +1,303 @@
+# 3-Player FDN Walkthrough: 1 Hunter + 2 Bounties
+# Three players (1 Hunter, 2 Bounties) sharing encounters with 7 NPCs
+# Demonstrates multi-player dynamics with bounty majority
+# Runtime: ~4 minutes
+# Usage: .pio/build/native_cli/program 1 --script demos/3player-2bounty-1hunter.demo
+# Note: Uses 'add bounty' command to create additional bounty players dynamically
+
+# Wait for initial hunter device to settle (device 0)
+wait 2
+
+# Add two bounty players dynamically (devices 1 and 2)
+add bounty
+wait 1
+add bounty
+wait 1
+
+state
+role 0
+role 1
+role 2
+
+# ========================================
+# GAME 1: Ghost Runner - Hunter plays
+# ========================================
+add npc ghost-runner
+wait 1
+cable 0 3
+wait 1
+
+# FDN handshake
+wait 4
+
+# Ghost Runner intro (2s)
+wait 2.5
+wait 1.5
+
+# Hunter plays: 4 rounds
+wait 2.5
+b 0
+wait 3
+b 0
+wait 3
+b 0
+wait 3
+b 0
+
+# Win state
+wait 4
+konami 0
+
+cable -d 0 3
+wait 1
+
+# ========================================
+# GAME 2: Spike Vector - Bounty 1 plays
+# ========================================
+add npc spike-vector
+wait 1
+cable 1 4
+wait 1
+
+# FDN handshake
+wait 4
+
+# Spike Vector intro (2s)
+wait 2.5
+wait 1
+
+# Bounty 1 plays: 5 waves
+b 1
+wait 4
+b2 1
+wait 4
+b 1
+wait 4
+b2 1
+wait 4
+b 1
+wait 4
+
+# Win state
+wait 4
+konami 1
+
+cable -d 1 4
+wait 1
+
+# ========================================
+# GAME 3: Firewall Decrypt - Bounty 2 plays
+# ========================================
+add npc firewall-decrypt
+wait 1
+cable 2 5
+wait 1
+
+# FDN handshake
+wait 4
+
+# Firewall Decrypt intro (2s)
+wait 2.5
+wait 1
+
+# Bounty 2 plays: 3 rounds
+# Round 1
+b 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 0.3
+l 2
+wait 1.5
+
+# Round 2
+b 2
+wait 0.3
+b2 2
+wait 0.3
+l 2
+wait 1.5
+
+# Round 3
+b 2
+wait 0.3
+b 2
+wait 0.3
+l 2
+wait 1.5
+
+# Win state
+wait 4
+konami 2
+
+cable -d 2 5
+wait 1
+
+# ========================================
+# GAME 4: Cipher Path - Hunter plays
+# ========================================
+add npc cipher-path
+wait 1
+cable 0 6
+wait 1
+
+# FDN handshake
+wait 4
+
+# Cipher Path intro (2s)
+wait 2.5
+wait 1
+
+# Hunter plays: 2 rounds
+# Round 1
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 1.5
+
+# Round 2
+b 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 1.5
+
+# Win state
+wait 4
+konami 0
+
+cable -d 0 6
+wait 1
+
+# ========================================
+# GAME 5: Exploit Sequencer - Bounty 1 plays
+# ========================================
+add npc exploit-sequencer
+wait 1
+cable 1 7
+wait 1
+
+# FDN handshake
+wait 4
+
+# Exploit Sequencer intro (2s)
+wait 2.5
+wait 1.5
+
+# Bounty 1 plays: 2 sequences x 2 exploits
+wait 2
+b 1
+wait 2.5
+b 1
+wait 2.5
+b 1
+wait 2.5
+b 1
+
+# Win state
+wait 4
+konami 1
+
+cable -d 1 7
+wait 1
+
+# ========================================
+# GAME 6: Breach Defense - Bounty 2 plays
+# ========================================
+add npc breach-defense
+wait 1
+cable 2 8
+wait 1
+
+# FDN handshake
+wait 4
+
+# Breach Defense intro (2s)
+wait 2.5
+wait 1
+
+# Bounty 2 plays: 6 threats
+wait 5
+b2 2
+wait 5
+b 2
+wait 5
+b2 2
+wait 5
+b 2
+wait 5
+b2 2
+wait 5
+b 2
+
+# Win state
+wait 4
+konami 2
+
+cable -d 2 8
+wait 1
+
+# ========================================
+# GAME 7: Signal Echo - Hunter plays
+# ========================================
+add npc signal-echo
+wait 1
+cable 0 9
+wait 1
+
+# FDN handshake
+wait 4
+
+# Signal Echo intro (2s)
+wait 2.5
+
+# Show sequence
+wait 3
+
+# Hunter plays: 4-button sequence
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+wait 0.5
+
+# Win state
+wait 4
+konami 0
+
+cable -d 0 9
+wait 1
+
+# ========================================
+# COMPLETION: All players have collected buttons
+# ========================================
+state
+
+# Check Konami progress for all three players
+konami 0
+konami 1
+konami 2
+
+# Final roles
+role 0
+role 1
+role 2

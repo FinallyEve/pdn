@@ -1,0 +1,330 @@
+# All FDN Walkthrough Demo
+# Single player (Hunter) encounters all 7 FDN NPC game types
+# Demonstrates full FDN handshake flow, minigame completion, and Konami button collection
+# Runtime: ~4 minutes
+# Usage: .pio/build/native_cli/program 1 --script demos/all-fdn-walkthrough.demo
+
+# Wait for player device to settle into Idle
+wait 2
+state
+
+# ========================================
+# GAME 1: Ghost Runner (Konami Button: UP)
+# ========================================
+add npc ghost-runner
+wait 1
+cable 0 1
+wait 1
+
+# FDN handshake: smac (broadcast by NPC) -> fack (player response) -> game launch
+# Wait for FdnDetected -> FdnPrompt -> handshake completion
+wait 4
+
+# Ghost Runner intro screen (2s)
+wait 2.5
+
+# Game shows timer and instructions
+wait 1.5
+
+# EASY mode: 4 rounds, zone is 35-65
+# Ghost moves to center (50) over 2.5s (50 pos x 50ms)
+# Wait for ghost to reach zone center, then press
+wait 2.5
+b 0
+
+# Round 2
+wait 3
+b 0
+
+# Round 3
+wait 3
+b 0
+
+# Round 4
+wait 3
+b 0
+
+# Wait for win evaluation and display (3-4s)
+wait 4
+
+# FdnComplete state - Konami button unlocked
+wait 1
+konami 0
+
+# Disconnect cable to reset for next encounter
+cable -d 0 1
+wait 1
+
+# ========================================
+# GAME 2: Spike Vector (Konami Button: DOWN)
+# ========================================
+add npc spike-vector
+wait 1
+cable 0 2
+wait 1
+
+# FDN handshake
+wait 4
+
+# Spike Vector intro (2s)
+wait 2.5
+
+# EASY mode: 5 waves, 3 hits allowed
+# Waves appear every 3-5 seconds
+# Dodge left (b2) or right (b) based on spike direction
+wait 1
+b 0
+wait 4
+b2 0
+wait 4
+b 0
+wait 4
+b2 0
+wait 4
+b 0
+wait 4
+
+# Win state
+wait 4
+konami 0
+cable -d 0 2
+wait 1
+
+# ========================================
+# GAME 3: Firewall Decrypt (Konami Button: LEFT)
+# ========================================
+add npc firewall-decrypt
+wait 1
+cable 0 3
+wait 1
+
+# FDN handshake
+wait 4
+
+# Firewall Decrypt intro (2s)
+wait 2.5
+
+# EASY mode: 3 rounds, 5 candidates per round
+# Scroll through candidates with b/b2, confirm with long press
+# Wait 0.3s between actions
+wait 1
+
+# Round 1: scroll and confirm
+b 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+l 0
+wait 1.5
+
+# Round 2
+b 0
+wait 0.3
+b2 0
+wait 0.3
+l 0
+wait 1.5
+
+# Round 3
+b 0
+wait 0.3
+b 0
+wait 0.3
+l 0
+wait 1.5
+
+# Win state
+wait 4
+konami 0
+cable -d 0 3
+wait 1
+
+# ========================================
+# GAME 4: Cipher Path (Konami Button: RIGHT)
+# ========================================
+add npc cipher-path
+wait 1
+cable 0 4
+wait 1
+
+# FDN handshake
+wait 4
+
+# Cipher Path intro (2s)
+wait 2.5
+
+# EASY mode: 2 rounds, 6 moves each
+# Navigate path with b (forward) or b2 (turn)
+# 0.3s between moves
+wait 1
+
+# Round 1: 6 moves
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 1.5
+
+# Round 2: 6 moves
+b 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 1.5
+
+# Win state
+wait 4
+konami 0
+cable -d 0 4
+wait 1
+
+# ========================================
+# GAME 5: Exploit Sequencer (Konami Button: B)
+# ========================================
+add npc exploit-sequencer
+wait 1
+cable 0 5
+wait 1
+
+# FDN handshake
+wait 4
+
+# Exploit Sequencer intro (2s)
+wait 2.5
+
+# EASY mode: 2 sequences x 2 exploits each
+# Marker moves to zone (50 pos x 40ms = 2s)
+# Press when marker reaches target zone
+wait 1.5
+
+# Sequence 1, Exploit 1
+wait 2
+b 0
+
+# Sequence 1, Exploit 2
+wait 2.5
+b 0
+
+# Sequence 2, Exploit 1
+wait 2.5
+b 0
+
+# Sequence 2, Exploit 2
+wait 2.5
+b 0
+
+# Win state
+wait 4
+konami 0
+cable -d 0 5
+wait 1
+
+# ========================================
+# GAME 6: Breach Defense (Konami Button: A)
+# ========================================
+add npc breach-defense
+wait 1
+cable 0 6
+wait 1
+
+# FDN handshake
+wait 4
+
+# Breach Defense intro (2s)
+wait 2.5
+
+# EASY mode: 6 threats, 3 breaches allowed
+# Threats appear every 5 seconds
+# Press correct button (b or b2) when threat appears
+wait 1
+
+# Threat 1
+wait 5
+b2 0
+
+# Threat 2
+wait 5
+b 0
+
+# Threat 3
+wait 5
+b2 0
+
+# Threat 4
+wait 5
+b 0
+
+# Threat 5
+wait 5
+b2 0
+
+# Threat 6
+wait 5
+b 0
+
+# Win state
+wait 4
+konami 0
+cable -d 0 6
+wait 1
+
+# ========================================
+# GAME 7: Signal Echo (Konami Button: START)
+# ========================================
+add npc signal-echo
+wait 1
+cable 0 7
+wait 1
+
+# FDN handshake
+wait 4
+
+# Signal Echo intro (2s)
+wait 2.5
+
+# EASY mode: 4 signals x 4 sequences
+# Show sequence (~800ms per element)
+wait 3
+
+# Input phase: repeat sequence with 0.5s between presses
+# Sequence: UP, DOWN, UP, DOWN
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+wait 0.5
+
+# Win state
+wait 4
+
+# All 7 Konami buttons collected!
+konami 0
+cable -d 0 7
+wait 1
+
+# ========================================
+# COMPLETION: All 7 Konami Buttons Unlocked
+# ========================================
+state
+
+# Player now has full Konami boon
+role 0

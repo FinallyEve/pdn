@@ -94,6 +94,99 @@ Demonstrates:
 6. Breach Defense
 7. Signal Echo
 
+### 5. All FDN Walkthrough (`all-fdn-walkthrough.demo`)
+
+**Runtime:** ~4 minutes
+**Purpose:** Complete FDN walkthrough with single player through all 7 game types
+
+Demonstrates:
+- Full FDN handshake protocol (smac → fack → game launch)
+- All 7 minigame types in FDN encounter mode
+- Konami button collection and progress tracking
+- Cable connect/disconnect lifecycle for each encounter
+- Single Hunter player completing full progression
+
+**Run command:**
+```bash
+.pio/build/native_cli/program 1 --script demos/all-fdn-walkthrough.demo
+```
+
+**Games encountered (in order):**
+1. Ghost Runner → UP button
+2. Spike Vector → DOWN button
+3. Firewall Decrypt → LEFT button
+4. Cipher Path → RIGHT button
+5. Exploit Sequencer → B button
+6. Breach Defense → A button
+7. Signal Echo → START button
+
+### 6. All FDN Bounty Walkthrough (`all-fdn-bounty-walkthrough.demo`)
+
+**Runtime:** ~3.5 minutes
+**Purpose:** Multi-player FDN walkthrough with Hunter and Bounty roles
+
+Demonstrates:
+- Two players (1 Hunter + 1 Bounty) sharing FDN encounters
+- Bounty role validation and gameplay
+- Players alternating between encounters with different NPCs
+- 6 NPCs encountered (3 per player)
+- Konami button collection for both players
+
+**Run command:**
+```bash
+.pio/build/native_cli/program 2 --script demos/all-fdn-bounty-walkthrough.demo
+```
+
+**Encounter sequence:**
+1. Ghost Runner (Hunter plays)
+2. Spike Vector (Bounty plays)
+3. Firewall Decrypt (Hunter plays)
+4. Cipher Path (Bounty plays)
+5. Exploit Sequencer (Hunter plays)
+6. Breach Defense (Bounty plays)
+
+### 7. 3-Player: 2 Hunters + 1 Bounty (`3player-2hunter-1bounty.demo`)
+
+**Runtime:** ~4 minutes
+**Purpose:** Multi-player dynamics with hunter majority
+
+Demonstrates:
+- Three players (2 Hunters, 1 Bounty) sharing encounters
+- All 7 FDN game types across 3 players
+- Load distribution with hunter majority
+- Each player collecting multiple Konami buttons
+
+**Run command:**
+```bash
+.pio/build/native_cli/program 3 --script demos/3player-2hunter-1bounty.demo
+```
+
+**Player distribution:**
+- Hunter 1: Ghost Runner, Cipher Path, Signal Echo (3 games)
+- Hunter 2: Spike Vector, Exploit Sequencer (2 games)
+- Bounty: Firewall Decrypt, Breach Defense (2 games)
+
+### 8. 3-Player: 1 Hunter + 2 Bounties (`3player-2bounty-1hunter.demo`)
+
+**Runtime:** ~4 minutes
+**Purpose:** Multi-player dynamics with bounty majority
+
+Demonstrates:
+- Three players (1 Hunter, 2 Bounties) sharing encounters
+- Dynamic player creation using `add bounty` command
+- All 7 FDN game types across 3 players
+- Load distribution with bounty majority
+
+**Run command:**
+```bash
+.pio/build/native_cli/program 1 --script demos/3player-2bounty-1hunter.demo
+```
+
+**Player distribution:**
+- Hunter: Ghost Runner, Cipher Path, Signal Echo (3 games)
+- Bounty 1: Spike Vector, Exploit Sequencer (2 games)
+- Bounty 2: Firewall Decrypt, Breach Defense (2 games)
+
 ## Script Syntax Reference
 
 Demo scripts support the following commands:
