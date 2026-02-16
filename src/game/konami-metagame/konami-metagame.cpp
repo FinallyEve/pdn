@@ -223,7 +223,7 @@ void KonamiMetaGame::onStateLoop(Device* PDN) {
     // Special handling for Handshake state (index 0) before base onStateLoop
     // Handshake uses dynamic routing via getTargetStateIndex()
     if (currentState && currentState->getStateId() == 0) {
-        KonamiHandshake* handshake = dynamic_cast<KonamiHandshake*>(currentState);
+        KonamiHandshake* handshake = static_cast<KonamiHandshake*>(currentState);
         if (handshake && handshake->shouldTransition()) {
             int targetIndex = handshake->getTargetStateIndex();
             if (targetIndex >= 0 && targetIndex < static_cast<int>(stateMap.size())) {

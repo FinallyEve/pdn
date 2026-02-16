@@ -5,6 +5,7 @@
 #include "game/sequence-provider.hpp"
 #include "state/state-machine.hpp"
 #include "game/minigame.hpp"
+#include "game/difficulty-helpers.hpp"
 
 static const char* TAG = "GameLaunchState";
 
@@ -105,7 +106,7 @@ std::unique_ptr<Snapshot> GameLaunchState::onStatePaused(Device* PDN) {
 
 void GameLaunchState::onStateResumed(Device* PDN, Snapshot* snapshot) {
     if (snapshot) {
-        auto* gameLaunchSnapshot = dynamic_cast<GameLaunchSnapshot*>(snapshot);
+        auto* gameLaunchSnapshot = static_cast<GameLaunchSnapshot*>(snapshot);
         if (gameLaunchSnapshot) {
             gameLaunched = gameLaunchSnapshot->gameLaunched;
             gameResumed = true;  // Mark as resumed so we can check outcome
@@ -131,15 +132,15 @@ void GameLaunchState::launchGame(Device* PDN) {
           static_cast<int>(gameType), static_cast<int>(launchMode));
 
     // Set difficulty based on launch mode
-    Difficulty difficulty;
+    bool hardMode;
     switch (launchMode) {
         case LaunchMode::EASY_FIRST_ENCOUNTER:
         case LaunchMode::EASY_REPLAY:
-            difficulty = Difficulty::EASY;
+            hardMode = false;
             break;
         case LaunchMode::HARD_FIRST_ENCOUNTER:
         case LaunchMode::MASTERY_REPLAY:
-            difficulty = Difficulty::HARD;
+            hardMode = true;
             break;
     }
 
@@ -156,10 +157,60 @@ void GameLaunchState::launchGame(Device* PDN) {
         default:                          appId = 1; break;
     }
 
-    // TODO: Configure difficulty - minigames need to read this from somewhere
-    // For now, we just launch the game. The minigames may need modification
-    // to accept difficulty configuration from external sources.
-    // Difficulty is: %s", (difficulty == Difficulty::EASY) ? "EASY" : "HARD"
+    // Configure minigame with managed mode enabled
+    StateMachine* app = PDN->getApp(StateId(appId));
+    MiniGame* minigame = static_cast<MiniGame*>(app);
+    if (minigame) {
+        // Set managedMode = true on the game config
+        // Use appropriate config helpers based on game type
+        switch (gameType) {
+            case GameType::SIGNAL_ECHO: {
+                auto* game = static_cast<SignalEcho*>(minigame);
+                game->getConfig() = hardMode ? SIGNAL_ECHO_HARD : SIGNAL_ECHO_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::GHOST_RUNNER: {
+                auto* game = static_cast<GhostRunner*>(minigame);
+                game->getConfig() = hardMode ? GHOST_RUNNER_HARD : GHOST_RUNNER_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::SPIKE_VECTOR: {
+                auto* game = static_cast<SpikeVector*>(minigame);
+                game->getConfig() = hardMode ? SPIKE_VECTOR_HARD : SPIKE_VECTOR_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::FIREWALL_DECRYPT: {
+                auto* game = static_cast<FirewallDecrypt*>(minigame);
+                game->getConfig() = hardMode ? FIREWALL_DECRYPT_HARD : FIREWALL_DECRYPT_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::CIPHER_PATH: {
+                auto* game = static_cast<CipherPath*>(minigame);
+                game->getConfig() = hardMode ? CIPHER_PATH_HARD : CIPHER_PATH_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::EXPLOIT_SEQUENCER: {
+                auto* game = static_cast<ExploitSequencer*>(minigame);
+                game->getConfig() = hardMode ? EXPLOIT_SEQUENCER_HARD : EXPLOIT_SEQUENCER_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            case GameType::BREACH_DEFENSE: {
+                auto* game = static_cast<BreachDefense*>(minigame);
+                game->getConfig() = hardMode ? BREACH_DEFENSE_HARD : BREACH_DEFENSE_EASY;
+                game->getConfig().managedMode = true;
+                break;
+            }
+            default:
+                break;
+        }
+        LOG_I(TAG, "Configured game with hardMode=%d, managedMode=true", hardMode);
+    }
 
     // Launch the app
     PDN->setActiveApp(StateId(appId));
@@ -180,7 +231,7 @@ void GameLaunchState::readOutcome(Device* PDN) {
     }
 
     StateMachine* stateMachineApp = PDN->getApp(StateId(appId));
-    MiniGame* completedApp = dynamic_cast<MiniGame*>(stateMachineApp);
+    MiniGame* completedApp = static_cast<MiniGame*>(stateMachineApp);
     if (completedApp) {
         const MiniGameOutcome& outcome = completedApp->getOutcome();
         playerWon = (outcome.result == MiniGameResult::WON);
