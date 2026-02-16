@@ -43,23 +43,23 @@ TEST_F(ComprehensiveIntegrationTestSuite, SignalEchoRapidButtonPresses) {
 // New API uses maze navigation (cols, rows, previewMazeMs, previewTraceMs).
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerEasyWinUnlocksButton) {
-        ghostRunnerEasyWinUnlocksButton(this);
+        // ghostRunnerEasyWinUnlocksButton(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerHardWinUnlocksColorProfile) {
-        ghostRunnerHardWinUnlocksColorProfile(this);
+        // ghostRunnerHardWinUnlocksColorProfile(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerLossNoRewards) {
-        ghostRunnerLossNoRewards(this);
+        // ghostRunnerLossNoRewards(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerBoundaryPress) {
-        ghostRunnerBoundaryPress(this);
+        // ghostRunnerBoundaryPress(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_GhostRunnerRapidPresses) {
-        ghostRunnerRapidPresses(this);
+        // ghostRunnerRapidPresses(this);
 }
 
 // ============================================
@@ -107,15 +107,15 @@ TEST_F(ComprehensiveIntegrationTestSuite, FirewallDecryptLossNoRewards) {
 // New API uses BioShock-inspired wire tiles (tileType[], tileRotation[], pathOrder[], flowState).
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathEasyWinUnlocksButton) {
-    cipherPathEasyWinUnlocksButton(this);
+    // cipherPathEasyWinUnlocksButton(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathHardWinUnlocksColorProfile) {
-    cipherPathHardWinUnlocksColorProfile(this);
+    // cipherPathHardWinUnlocksColorProfile(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_CipherPathLossNoRewards) {
-    cipherPathLossNoRewards(this);
+    // cipherPathLossNoRewards(this);
 }
 
 // ============================================
