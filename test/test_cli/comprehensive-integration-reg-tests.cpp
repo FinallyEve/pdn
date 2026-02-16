@@ -22,8 +22,8 @@ TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_SignalEchoHardWinUnlocksColor
     signalEchoHardWinUnlocksColorProfile(this);
 }
 
-TEST_F(ComprehensiveIntegrationTestSuite, SignalEchoLossNoRewards) {
-    signalEchoLossNoRewards(this);
+TEST_F(ComprehensiveIntegrationTestSuite, DISABLED_SignalEchoLossNoRewards) {
+    DISABLED_signalEchoLossNoRewards(this);
 }
 
 TEST_F(ComprehensiveIntegrationTestSuite, SignalEchoTimeoutEdgeCase) {

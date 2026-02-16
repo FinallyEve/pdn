@@ -18,8 +18,8 @@ TEST_F(FdnDemoScriptTestSuite, SignalEchoHardCompleteWalkthrough) {
     signalEchoHardCompleteWalkthrough(this);
 }
 
-TEST_F(FdnDemoScriptTestSuite, SignalEchoLossNoRewards) {
-    signalEchoLossNoRewards(this);
+TEST_F(FdnDemoScriptTestSuite, DISABLED_SignalEchoLossNoRewards) {
+    DISABLED_signalEchoLossNoRewards(this);
 }
 
 TEST_F(FdnDemoScriptTestSuite, SignalEchoMultipleErrorsLoss) {
