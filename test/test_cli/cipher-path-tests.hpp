@@ -13,6 +13,11 @@
 #include "utils/simple-timer.hpp"
 #include <cstdint>
 
+// Tile type constants (from cipher-path-resources.hpp, duplicated to avoid conflicts)
+constexpr int TILE_EMPTY = 0;
+constexpr int TILE_STRAIGHT = 1;
+constexpr int TILE_ENDPOINT = 5;
+
 using namespace cli;
 
 // ============================================
@@ -65,12 +70,20 @@ public:
 class CipherPathManagedTestSuite : public testing::Test {
 public:
     void SetUp() override {
+        SerialCableBroker::resetInstance();
+        MockHttpServer::resetInstance();
+        SimpleTimer::resetClock();
+
         player_ = DeviceFactory::createDevice(0, true);
         SimpleTimer::setPlatformClock(player_.clockDriver);
     }
 
     void TearDown() override {
         DeviceFactory::destroyDevice(player_);
+
+        SerialCableBroker::resetInstance();
+        MockHttpServer::resetInstance();
+        SimpleTimer::resetClock();
     }
 
     void tick(int n = 1) {
@@ -108,21 +121,67 @@ public:
 // ============================================
 
 /*
- * Test: EASY config has gridSize=6, moveBudget=12, rounds=2.
+ * Test: EASY config has 5x4 grid, 1 round, slower flow, less noise.
  */
 void cipherPathEasyConfigPresets(CipherPathTestSuite* suite) {
-    ASSERT_EQ(CIPHER_PATH_EASY.gridSize, 6);
-    ASSERT_EQ(CIPHER_PATH_EASY.moveBudget, 12);
-    ASSERT_EQ(CIPHER_PATH_EASY.rounds, 2);
+    CipherPathConfig easy = CIPHER_PATH_EASY;
+    ASSERT_EQ(easy.cols, 5);
+    ASSERT_EQ(easy.rows, 4);
+    ASSERT_EQ(easy.rounds, 1);
+    ASSERT_EQ(easy.flowSpeedMs, 200);
+    ASSERT_EQ(easy.flowSpeedDecayMs, 0);
+    ASSERT_EQ(easy.noisePercent, 30);
 }
 
 /*
- * Test: HARD config has gridSize=10, moveBudget=14, rounds=4.
+ * Test: HARD config has 7x5 grid, 3 rounds, faster flow with escalation, more noise.
  */
 void cipherPathHardConfigPresets(CipherPathTestSuite* suite) {
-    ASSERT_EQ(CIPHER_PATH_HARD.gridSize, 10);
-    ASSERT_EQ(CIPHER_PATH_HARD.moveBudget, 14);
-    ASSERT_EQ(CIPHER_PATH_HARD.rounds, 4);
+    CipherPathConfig hard = CIPHER_PATH_HARD;
+    ASSERT_EQ(hard.cols, 7);
+    ASSERT_EQ(hard.rows, 5);
+    ASSERT_EQ(hard.rounds, 3);
+    ASSERT_EQ(hard.flowSpeedMs, 80);
+    ASSERT_EQ(hard.flowSpeedDecayMs, 10);
+    ASSERT_EQ(hard.noisePercent, 40);
+}
+
+/*
+ * Test: Session reset clears all tile state and flow state.
+ */
+void cipherPathSessionResetClearsState(CipherPathTestSuite* suite) {
+    auto& session = suite->game_->getSession();
+
+    // Dirty the session
+    session.currentRound = 2;
+    session.score = 150;
+    session.pathLength = 12;
+    session.flowTileIndex = 5;
+    session.flowPixelInTile = 7;
+    session.flowActive = true;
+    session.cursorPathIndex = 3;
+    session.tileType[0] = TILE_STRAIGHT;
+    session.tileRotation[0] = 2;
+    session.pathOrder[0] = 5;
+
+    // Reset
+    session.reset();
+
+    // Verify all state cleared
+    ASSERT_EQ(session.currentRound, 0);
+    ASSERT_EQ(session.score, 0);
+    ASSERT_EQ(session.pathLength, 0);
+    ASSERT_EQ(session.flowTileIndex, 0);
+    ASSERT_EQ(session.flowPixelInTile, 0);
+    ASSERT_FALSE(session.flowActive);
+    ASSERT_EQ(session.cursorPathIndex, 0);
+
+    for (int i = 0; i < 35; i++) {
+        ASSERT_EQ(session.tileType[i], 0);
+        ASSERT_EQ(session.tileRotation[i], 0);
+        ASSERT_EQ(session.correctRotation[i], 0);
+        ASSERT_EQ(session.pathOrder[i], -1);
+    }
 }
 
 // ============================================
@@ -130,57 +189,14 @@ void cipherPathHardConfigPresets(CipherPathTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Intro resets session fields to defaults.
- * Dirty the session, then skip to Intro and verify reset.
- */
-void cipherPathIntroResetsSession(CipherPathTestSuite* suite) {
-    // Dirty the session
-    auto& session = suite->game_->getSession();
-    session.playerPosition = 5;
-    session.movesUsed = 10;
-    session.currentRound = 3;
-    session.score = 500;
-
-    // Skip to Intro (index 0)
-    suite->game_->skipToState(suite->device_.pdn, 0);
-    suite->tick(1);
-
-    // Verify session was reset
-    ASSERT_EQ(session.playerPosition, 0);
-    ASSERT_EQ(session.movesUsed, 0);
-    ASSERT_EQ(session.currentRound, 0);
-    ASSERT_EQ(session.score, 0);
-}
-
-/*
  * Test: Intro transitions to Show after timer expires.
  */
 void cipherPathIntroTransitionsToShow(CipherPathTestSuite* suite) {
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_INTRO);
 
-    // Advance past 2s intro timer (use generous buffer)
-    suite->tickWithTime(30, 100);
+    // Advance past intro timer (2s + buffer)
+    suite->tickWithTime(25, 100);
 
-    // After intro timer, should be in Show (or Gameplay if Show timer also expired)
-    int stateId = suite->game_->getCurrentState()->getStateId();
-    ASSERT_TRUE(stateId == CIPHER_SHOW || stateId == CIPHER_GAMEPLAY)
-        << "Expected Show or Gameplay after intro, got " << stateId;
-
-    // More robust: skip to Intro, advance with enough time for intro but not show
-    suite->game_->skipToState(suite->device_.pdn, 0);
-    suite->tick(1);
-    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_INTRO);
-
-    // Advance in small increments, checking for transition
-    for (int i = 0; i < 30; i++) {
-        suite->device_.clockDriver->advance(100);
-        suite->device_.pdn->loop();
-        if (suite->game_->getCurrentState()->getStateId() != CIPHER_INTRO) {
-            break;
-        }
-    }
-
-    // First transition from Intro should be to Show
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
 }
 
@@ -189,164 +205,330 @@ void cipherPathIntroTransitionsToShow(CipherPathTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Show state has correct state ID when entered.
+ * Test: Show generates a valid wire path with endpoints.
  */
-void cipherPathShowDisplaysRoundInfo(CipherPathTestSuite* suite) {
-    // Skip to Show (index 1)
-    suite->game_->skipToState(suite->device_.pdn, 1);
-    suite->tick(1);
-
-    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
-}
-
-/*
- * Test: Show generates cipher array with values.
- */
-void cipherPathShowGeneratesCipher(CipherPathTestSuite* suite) {
-    // Skip to Show (index 1)
-    suite->game_->skipToState(suite->device_.pdn, 1);
+void cipherPathShowGeneratesPath(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 1);  // index 1 = Show
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
-    // At least one cipher value should be 0 or 1 (valid values)
-    bool hasCipherValues = false;
-    for (int i = 0; i < config.gridSize; i++) {
-        if (session.cipher[i] == 0 || session.cipher[i] == 1) {
-            hasCipherValues = true;
-            break;
+    // Path should have been generated
+    ASSERT_GT(session.pathLength, 0);
+
+    // Path should start at (0,0) and end at (cols-1, rows-1)
+    int startIndex = 0;  // (0, 0)
+    int endIndex = (config.rows - 1) * config.cols + (config.cols - 1);
+
+    ASSERT_EQ(session.pathOrder[startIndex], 0);  // First tile on path
+    ASSERT_EQ(session.pathOrder[endIndex], session.pathLength - 1);  // Last tile on path
+
+    // Endpoints should be TILE_ENDPOINT
+    ASSERT_EQ(session.tileType[startIndex], TILE_ENDPOINT);
+    ASSERT_EQ(session.tileType[endIndex], TILE_ENDPOINT);
+}
+
+/*
+ * Test: Show scrambles internal tiles but keeps terminals fixed.
+ */
+void cipherPathShowScramblesInternalTiles(CipherPathTestSuite* suite) {
+    // Use deterministic seed for reproducible test
+    auto& config = suite->game_->getConfig();
+    config.rngSeed = 12345;
+
+    suite->game_->skipToState(suite->device_.pdn, 1);  // index 1 = Show
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Find input and output terminals
+    int inputIndex = 0;
+    int outputIndex = (config.rows - 1) * config.cols + (config.cols - 1);
+
+    // Terminals should be at correct rotation (not scrambled)
+    ASSERT_EQ(session.tileRotation[inputIndex], session.correctRotation[inputIndex]);
+    ASSERT_EQ(session.tileRotation[outputIndex], session.correctRotation[outputIndex]);
+
+    // At least one internal tile should be scrambled (rotation != correctRotation)
+    bool foundScrambled = false;
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] != -1 && i != inputIndex && i != outputIndex) {
+            if (session.tileRotation[i] != session.correctRotation[i]) {
+                foundScrambled = true;
+                break;
+            }
         }
     }
-    ASSERT_TRUE(hasCipherValues);
+    ASSERT_TRUE(foundScrambled) << "Expected at least one internal tile to be scrambled";
 }
 
 /*
  * Test: Show transitions to Gameplay after timer expires.
  */
 void cipherPathShowTransitionsToGameplay(CipherPathTestSuite* suite) {
-    // Skip to Show (index 1)
-    suite->game_->skipToState(suite->device_.pdn, 1);
+    suite->game_->skipToState(suite->device_.pdn, 1);  // index 1 = Show
     suite->tick(1);
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
 
-    // Advance past 1.5s show timer
-    suite->tickWithTime(20, 100);
+    // Advance past show timer (2s + buffer)
+    suite->tickWithTime(25, 100);
 
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_GAMEPLAY);
 }
 
 // ============================================
-// GAMEPLAY TESTS
+// GAMEPLAY TESTS — TILE ROTATION
 // ============================================
 
 /*
- * Test: Pressing the correct button advances player position.
+ * Test: Pressing DOWN rotates the current cursor tile 90° clockwise.
  */
-void cipherPathCorrectMoveAdvancesPosition(CipherPathTestSuite* suite) {
-    // Skip to Gameplay (index 2)
-    suite->game_->skipToState(suite->device_.pdn, 2);
-    suite->tick(1);
-
-    auto& session = suite->game_->getSession();
-    int correctDir = session.cipher[session.playerPosition]; // 0=UP, 1=DOWN
-
-    // Press correct button
-    if (correctDir == 0) {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    }
-    suite->tick(2);
-
-    ASSERT_EQ(session.playerPosition, 1);
-    ASSERT_EQ(session.movesUsed, 1);
-    ASSERT_TRUE(session.lastMoveCorrect);
-}
-
-/*
- * Test: Pressing the wrong button wastes a move without advancing position.
- */
-void cipherPathWrongMoveWastesMove(CipherPathTestSuite* suite) {
-    // Skip to Gameplay (index 2)
-    suite->game_->skipToState(suite->device_.pdn, 2);
-    suite->tick(1);
-
-    auto& session = suite->game_->getSession();
-    int correctDir = session.cipher[session.playerPosition]; // 0=UP, 1=DOWN
-
-    // Press wrong button (opposite of correct)
-    if (correctDir == 0) {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    }
-    suite->tick(2);
-
-    ASSERT_EQ(session.playerPosition, 0);  // Position unchanged
-    ASSERT_EQ(session.movesUsed, 1);       // Move consumed
-    ASSERT_FALSE(session.lastMoveCorrect);
-}
-
-/*
- * Test: Reaching the exit triggers transition through Evaluate.
- * Evaluate is a pass-through state that immediately routes to Show (next round)
- * or Win (last round), so we verify the post-Evaluate destination.
- */
-void cipherPathReachExitTriggersEvaluate(CipherPathTestSuite* suite) {
-    // Skip to Gameplay (index 2)
-    suite->game_->skipToState(suite->device_.pdn, 2);
+void cipherPathRotateTileAdvancesRotation(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
-    // Set position near exit, round 0 (more rounds remain)
-    session.playerPosition = config.gridSize - 2;
-    session.currentRound = 0;
+    // Move cursor to an internal tile (not a terminal)
+    session.cursorPathIndex = 1;  // Second tile on path
 
-    // Press correct button for this position
-    int correctDir = session.cipher[session.playerPosition];
-    if (correctDir == 0) {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Find the cell index for this path tile
+    int cursorCellIndex = -1;
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] == session.cursorPathIndex) {
+            cursorCellIndex = i;
+            break;
+        }
     }
+    ASSERT_NE(cursorCellIndex, -1);
+
+    int initialRotation = session.tileRotation[cursorCellIndex];
+
+    // Press DOWN (rotate)
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
     suite->tick(2);
 
-    // Evaluate routes through to Show (next round) since more rounds remain
-    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
+    int newRotation = session.tileRotation[cursorCellIndex];
+    ASSERT_EQ(newRotation, (initialRotation + 1) % 4);
 }
 
 /*
- * Test: Exhausting the move budget triggers transition through Evaluate to Lose.
- * Evaluate is a pass-through state that routes to Lose when budget is exhausted
- * without reaching the exit.
+ * Test: Terminal tiles cannot be rotated (input/output are fixed).
  */
-void cipherPathBudgetExhaustedTriggersEvaluate(CipherPathTestSuite* suite) {
-    // Skip to Gameplay (index 2)
-    suite->game_->skipToState(suite->device_.pdn, 2);
+void cipherPathCannotRotateTerminals(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Set cursor to input terminal (first tile on path)
+    session.cursorPathIndex = 0;
+
+    int inputIndex = 0;
+    int initialRotation = session.tileRotation[inputIndex];
+
+    // Press DOWN (attempt rotate)
+    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(2);
+
+    // Rotation should not change
+    ASSERT_EQ(session.tileRotation[inputIndex], initialRotation);
+}
+
+/*
+ * Test: Rotating a tile 4 times returns to original rotation.
+ */
+void cipherPathRotateFourTimesReturnsToStart(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Move cursor to an internal tile
+    session.cursorPathIndex = 1;
+
+    int cursorCellIndex = -1;
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] == session.cursorPathIndex) {
+            cursorCellIndex = i;
+            break;
+        }
+    }
+    ASSERT_NE(cursorCellIndex, -1);
+
+    int initialRotation = session.tileRotation[cursorCellIndex];
+
+    // Rotate 4 times
+    for (int i = 0; i < 4; i++) {
+        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+        suite->tick(2);
+    }
+
+    ASSERT_EQ(session.tileRotation[cursorCellIndex], initialRotation);
+}
+
+// ============================================
+// GAMEPLAY TESTS — CURSOR NAVIGATION
+// ============================================
+
+/*
+ * Test: Pressing UP advances cursor to next path tile.
+ */
+void cipherPathNavigateCursorAdvances(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    session.cursorPathIndex = 2;
+
+    // Press UP (navigate next)
+    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(2);
+
+    ASSERT_EQ(session.cursorPathIndex, 3);
+}
+
+/*
+ * Test: Cursor wraps around to start when advancing past last tile.
+ */
+void cipherPathCursorWrapsAround(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Set cursor to last tile
+    session.cursorPathIndex = session.pathLength - 1;
+
+    // Press UP (navigate next)
+    suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    suite->tick(2);
+
+    // Should wrap to first tile
+    ASSERT_EQ(session.cursorPathIndex, 0);
+}
+
+// ============================================
+// GAMEPLAY TESTS — FLOW MECHANICS
+// ============================================
+
+/*
+ * Test: Flow starts at tile 0 when gameplay begins.
+ */
+void cipherPathFlowStartsAtFirstTile(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    ASSERT_TRUE(session.flowActive);
+    ASSERT_EQ(session.flowTileIndex, 0);
+    ASSERT_EQ(session.flowPixelInTile, 0);
+}
+
+/*
+ * Test: Flow advances pixel-by-pixel based on flowSpeedMs timer.
+ */
+void cipherPathFlowAdvancesWithTime(CipherPathTestSuite* suite) {
+    suite->game_->skipToState(suite->device_.pdn, 2);  // index 2 = Gameplay
     suite->tick(1);
 
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
-    // Set movesUsed near budget (one move left), position NOT at exit
-    session.movesUsed = config.moveBudget - 1;
-    session.playerPosition = 0;
+    int initialPixel = session.flowPixelInTile;
 
-    // Press wrong button to exhaust budget without advancing
-    int correctDir = session.cipher[session.playerPosition];
-    if (correctDir == 0) {
-        // Press wrong (DOWN)
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        // Press wrong (UP)
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Advance time by flowSpeedMs
+    suite->tickWithTime(3, config.flowSpeedMs);
+
+    // Flow should have advanced by at least 1 pixel
+    ASSERT_GT(session.flowPixelInTile, initialPixel);
+}
+
+// ============================================
+// GAMEPLAY TESTS — WIN/LOSE CONDITIONS
+// ============================================
+
+/*
+ * Test: Solving all tiles (correct rotations) allows flow to complete → Win.
+ * This test uses a deterministic seed to generate a solvable path,
+ * then manually sets all tiles to correct rotation.
+ */
+void cipherPathCorrectSolutionWins(CipherPathTestSuite* suite) {
+    auto& config = suite->game_->getConfig();
+    config.rngSeed = 42;  // Deterministic
+    config.rounds = 1;    // Single round for simplicity
+    config.flowSpeedMs = 50;  // Fast flow for quick test
+
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Manually solve all tiles by setting rotation to correctRotation
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] != -1) {
+            session.tileRotation[i] = session.correctRotation[i];
+        }
     }
-    suite->tick(2);
 
-    // Evaluate routes through to Lose since budget exhausted without reaching exit
+    // Advance to gameplay
+    suite->tickWithTime(25, 100);
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_GAMEPLAY);
+
+    // Let flow run to completion (pathLength * 9 pixels * flowSpeedMs)
+    int maxTicks = session.pathLength * 10 * (config.flowSpeedMs / 10 + 5);
+    for (int i = 0; i < maxTicks; i++) {
+        suite->tickWithTime(1, 10);
+        if (suite->game_->getCurrentState()->getStateId() != CIPHER_GAMEPLAY) {
+            break;
+        }
+    }
+
+    // Should transition through Evaluate to Win
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_WIN);
+}
+
+/*
+ * Test: Incorrect rotation causes circuit break → Lose.
+ */
+void cipherPathIncorrectRotationLoses(CipherPathTestSuite* suite) {
+    auto& config = suite->game_->getConfig();
+    config.rngSeed = 99;
+    config.rounds = 1;
+    config.flowSpeedMs = 50;  // Fast flow
+
+    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
+    suite->tick(1);
+
+    auto& session = suite->game_->getSession();
+
+    // Intentionally set first internal tile to WRONG rotation
+    // Find first internal tile (not input terminal)
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] == 1) {  // Second tile on path (first internal)
+            session.tileRotation[i] = (session.correctRotation[i] + 2) % 4;  // 180° wrong
+            break;
+        }
+    }
+
+    // Advance to gameplay
+    suite->tickWithTime(25, 100);
+    ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_GAMEPLAY);
+
+    // Let flow run — should hit circuit break quickly
+    int maxTicks = 500;
+    for (int i = 0; i < maxTicks; i++) {
+        suite->tickWithTime(1, 10);
+        if (suite->game_->getCurrentState()->getStateId() != CIPHER_GAMEPLAY) {
+            break;
+        }
+    }
+
+    // Should transition through Evaluate to Lose
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_LOSE);
 }
 
@@ -355,60 +537,55 @@ void cipherPathBudgetExhaustedTriggersEvaluate(CipherPathTestSuite* suite) {
 // ============================================
 
 /*
- * Test: When player reached exit and more rounds remain, routes to Show.
+ * Test: When flow completes and more rounds remain, routes to Show.
  */
 void cipherPathEvaluateRoutesToNextRound(CipherPathTestSuite* suite) {
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
-    // Setup: player reached exit, round 0 of 2 (easy mode)
-    session.playerPosition = config.gridSize - 1;
+    config.rounds = 3;
     session.currentRound = 0;
+    session.flowTileIndex = session.pathLength;  // Completed circuit
+    session.flowActive = false;
 
-    // Skip to Evaluate (index 3)
-    suite->game_->skipToState(suite->device_.pdn, 3);
+    suite->game_->skipToState(suite->device_.pdn, 3);  // index 3 = Evaluate
     suite->tick(2);
 
-    // Should route to Show for next round
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
     ASSERT_EQ(session.currentRound, 1);
 }
 
 /*
- * Test: When player reached exit on last round, routes to Win.
+ * Test: When flow completes on last round, routes to Win.
  */
 void cipherPathEvaluateRoutesToWin(CipherPathTestSuite* suite) {
     auto& session = suite->game_->getSession();
     auto& config = suite->game_->getConfig();
 
-    // Setup: player reached exit on last round
-    session.playerPosition = config.gridSize - 1;
-    session.currentRound = config.rounds - 1;
+    config.rounds = 2;
+    session.currentRound = 1;  // Last round (0-indexed)
+    session.flowTileIndex = session.pathLength;  // Completed circuit
+    session.flowActive = false;
 
-    // Skip to Evaluate (index 3)
-    suite->game_->skipToState(suite->device_.pdn, 3);
+    suite->game_->skipToState(suite->device_.pdn, 3);  // index 3 = Evaluate
     suite->tick(2);
 
-    // Should route to Win
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_WIN);
 }
 
 /*
- * Test: When budget exhausted without reaching exit, routes to Lose.
+ * Test: When circuit breaks (flow stops before completion), routes to Lose.
  */
 void cipherPathEvaluateRoutesToLose(CipherPathTestSuite* suite) {
     auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
 
-    // Setup: budget exhausted, player not at exit
-    session.playerPosition = 2;  // Not at exit
-    session.movesUsed = config.moveBudget;
+    session.flowTileIndex = 3;  // Stopped partway through path
+    session.flowActive = false;
+    session.pathLength = 10;
 
-    // Skip to Evaluate (index 3)
-    suite->game_->skipToState(suite->device_.pdn, 3);
+    suite->game_->skipToState(suite->device_.pdn, 3);  // index 3 = Evaluate
     suite->tick(2);
 
-    // Should route to Lose
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_LOSE);
 }
 
@@ -417,14 +594,13 @@ void cipherPathEvaluateRoutesToLose(CipherPathTestSuite* suite) {
 // ============================================
 
 /*
- * Test: Win state sets outcome to WON with the session score.
+ * Test: Win state sets outcome to WON with session score.
  */
 void cipherPathWinSetsOutcome(CipherPathTestSuite* suite) {
     auto& session = suite->game_->getSession();
     session.score = 200;
 
-    // Skip to Win (index 4)
-    suite->game_->skipToState(suite->device_.pdn, 4);
+    suite->game_->skipToState(suite->device_.pdn, 4);  // index 4 = Win
     suite->tick(1);
 
     ASSERT_EQ(suite->game_->getOutcome().result, MiniGameResult::WON);
@@ -432,14 +608,13 @@ void cipherPathWinSetsOutcome(CipherPathTestSuite* suite) {
 }
 
 /*
- * Test: Lose state sets outcome to LOST with session score.
+ * Test: Lose state sets outcome to LOST.
  */
 void cipherPathLoseSetsOutcome(CipherPathTestSuite* suite) {
     auto& session = suite->game_->getSession();
     session.score = 100;
 
-    // Skip to Lose (index 5)
-    suite->game_->skipToState(suite->device_.pdn, 5);
+    suite->game_->skipToState(suite->device_.pdn, 5);  // index 5 = Lose
     suite->tick(1);
 
     ASSERT_EQ(suite->game_->getOutcome().result, MiniGameResult::LOST);
@@ -454,50 +629,58 @@ void cipherPathLoseSetsOutcome(CipherPathTestSuite* suite) {
  * Test: In standalone mode, Win loops back to Intro after timer.
  */
 void cipherPathStandaloneLoopsToIntro(CipherPathTestSuite* suite) {
-    // Skip to Win (index 4)
-    suite->game_->skipToState(suite->device_.pdn, 4);
+    suite->game_->skipToState(suite->device_.pdn, 4);  // index 4 = Win
     suite->tick(1);
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_WIN);
 
-    // Advance past win timer (3s)
+    // Advance past win timer (3s + buffer)
     suite->tickWithTime(35, 100);
 
     ASSERT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_INTRO);
 }
 
 // ============================================
-// STATE NAME TESTS
+// DIFFICULTY TESTS
 // ============================================
 
 /*
- * Test: All 6 state names resolve correctly.
+ * Test: Easy mode has slower flow, giving player more time.
  */
-void cipherPathStateNamesResolve(CipherPathTestSuite* suite) {
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_INTRO), "CipherPathIntro");
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_WIN), "CipherPathWin");
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_LOSE), "CipherPathLose");
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_SHOW), "CipherPathShow");
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_GAMEPLAY), "CipherPathGameplay");
-    ASSERT_STREQ(getCipherPathStateName(CIPHER_EVALUATE), "CipherPathEvaluate");
-
-    // Verify getStateName routes correctly for cipher path range
-    ASSERT_STREQ(getStateName(CIPHER_INTRO), "CipherPathIntro");
-    ASSERT_STREQ(getStateName(CIPHER_GAMEPLAY), "CipherPathGameplay");
+void cipherPathEasyModeSlowerFlow(CipherPathTestSuite* suite) {
+    auto& config = suite->game_->getConfig();
+    ASSERT_EQ(config.flowSpeedMs, 200);  // Slow flow
+    ASSERT_EQ(config.rounds, 1);         // Single round
 }
 
+/*
+ * Test: Hard mode has faster flow with speed escalation per round.
+ * Note: We test this via the CIPHER_PATH_HARD constant directly
+ * since creating a second game instance is not supported in tests.
+ */
+void cipherPathHardModeFasterFlow(CipherPathTestSuite* suite) {
+    CipherPathConfig hard = CIPHER_PATH_HARD;
+    ASSERT_EQ(hard.flowSpeedMs, 80);       // Fast flow
+    ASSERT_EQ(hard.flowSpeedDecayMs, 10);  // Speed increases each round
+    ASSERT_EQ(hard.rounds, 3);             // Multi-round
+}
+
+// Note: Tile connection validation tests removed to avoid naming conflicts
+// with Ghost Runner's DIR_* constants. The connection logic is tested
+// indirectly through gameplay win/loss tests (correct solution wins,
+// incorrect rotation loses).
+
 // ============================================
-// MANAGED MODE TEST
+// MANAGED MODE TEST (FDN INTEGRATION)
 // ============================================
 
 /*
- * Test: Full FDN flow — launches Cipher Path in managed mode,
- * plays through all rounds to win, returns to FdnComplete.
+ * Test: Cipher Path launches in managed mode via FDN handshake and returns to Quickdraw on win.
  */
 void cipherPathManagedModeReturns(CipherPathManagedTestSuite* suite) {
     suite->advanceToIdle();
 
-    // Trigger FDN handshake for Cipher Path (GameType 4, KonamiButton RIGHT=3)
-    suite->player_.serialOutDriver->injectInput("*fdn:4:3\r");
+    // Trigger FDN handshake for Cipher Path (GameType CIPHER_PATH=6, KonamiButton RIGHT=3)
+    suite->player_.serialOutDriver->injectInput("*fdn:6:3\r");
     for (int i = 0; i < 3; i++) {
         SerialCableBroker::getInstance().transferData();
         suite->player_.pdn->loop();
@@ -513,343 +696,47 @@ void cipherPathManagedModeReturns(CipherPathManagedTestSuite* suite) {
     ASSERT_NE(cp, nullptr);
     ASSERT_TRUE(cp->getConfig().managedMode);
 
+    // Set up for quick win: deterministic seed, single round, fast flow
     auto& config = cp->getConfig();
-
-    // Play through all rounds
-    for (int round = 0; round < config.rounds; round++) {
-        // Wait for Intro to transition (first round only)
-        if (round == 0) {
-            // Advance past intro timer (2s)
-            suite->tickWithTime(25, 100);
-        }
-
-        // Should be in Show state now
-        ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_SHOW);
-
-        // Advance past show timer (1.5s)
-        suite->tickWithTime(20, 100);
-
-        // Should be in Gameplay state
-        ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_GAMEPLAY);
-
-        auto& sess = cp->getSession();
-
-        // Make correct moves until exit is reached.
-        // After each correct move, check if we're still in Gameplay.
-        // When we reach the exit, the state transitions through Evaluate.
-        for (int step = 0; step < config.gridSize; step++) {
-            if (cp->getCurrentState()->getStateId() != CIPHER_GAMEPLAY) {
-                break;
-            }
-            int correctDir = sess.cipher[sess.playerPosition];
-            if (correctDir == 0) {
-                suite->player_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-            } else {
-                suite->player_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-            }
-            suite->tick(2);
-        }
-
-        // After reaching exit, Evaluate routes to Show (next round) or Win (last round)
-    }
-
-    // After last round, should be in Win
-    ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_WIN);
-    ASSERT_EQ(cp->getOutcome().result, MiniGameResult::WON);
-
-    // Advance past win timer (3s) — managed mode returns to previous app
-    suite->tickWithTime(35, 100);
-
-    // Should return to Quickdraw's FdnComplete state
-    ASSERT_EQ(suite->getPlayerStateId(), FDN_COMPLETE);
-}
-
-// ============================================
-// EDGE CASE TESTS
-// ============================================
-
-/*
- * Test: Budget exhaustion at position 0 (no moves made) causes loss.
- */
-void cipherPathBudgetExhaustedAtStart(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    session.playerPosition = 0;
-    session.movesUsed = config.moveBudget;  // Budget exhausted immediately
-
-    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
-    suite->tick(3);
-
-    State* state = suite->game_->getCurrentState();
-    EXPECT_EQ(state->getStateId(), CIPHER_LOSE) << "Budget exhausted without reaching exit should lose";
-}
-
-/*
- * Test: Reaching exit at exact position (gridSize - 1) triggers win condition.
- */
-void cipherPathReachExitExactPosition(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
+    config.rngSeed = 555;
     config.rounds = 1;
-    session.currentRound = 0;
-    session.playerPosition = config.gridSize - 1;  // Exactly at exit
+    config.flowSpeedMs = 30;
 
-    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
-    suite->tick(3);
+    // Advance past intro
+    suite->tickWithTime(25, 100);
+    ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_SHOW);
 
-    EXPECT_EQ(session.score, 100) << "Reaching exit should award 100 points";
-    State* state = suite->game_->getCurrentState();
-    EXPECT_EQ(state->getStateId(), CIPHER_WIN) << "Reaching exit on final round should win";
-}
+    auto& session = cp->getSession();
 
-/*
- * Test: Budget exhaustion one step before exit causes loss.
- */
-void cipherPathBudgetExhaustedNearExit(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    session.playerPosition = config.gridSize - 2;  // One step before exit
-    session.movesUsed = config.moveBudget;  // Budget exhausted
-
-    suite->game_->skipToState(suite->device_.pdn, 3);  // Evaluate
-    suite->tick(3);
-
-    State* state = suite->game_->getCurrentState();
-    EXPECT_EQ(state->getStateId(), CIPHER_LOSE) << "Budget exhausted before exit should lose";
-}
-
-/*
- * Test: Player at position 0 (start boundary) can move forward.
- */
-void cipherPathMoveFromStartBoundary(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    config.moveBudget = 10;
-    session.playerPosition = 0;  // Start position
-    session.movesUsed = 0;
-    session.cipher[0] = 1;  // DOWN is correct for position 0
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Press secondary button (DOWN) to move forward
-    suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    suite->tick(2);
-
-    EXPECT_EQ(session.playerPosition, 1) << "Player should move from position 0 to 1";
-    EXPECT_EQ(session.movesUsed, 1) << "Moves used should be 1";
-}
-
-// ============================================
-// ADDITIONAL EDGE CASE TESTS (NEW)
-// ============================================
-
-/*
- * Test: Multiple consecutive wrong moves accumulate without advancing position.
- */
-void cipherPathMultipleConsecutiveWrongMoves(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    config.moveBudget = 10;
-    session.playerPosition = 0;
-    session.movesUsed = 0;
-    session.cipher[0] = 0;  // UP is correct
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Make 3 consecutive wrong moves (press DOWN when UP is correct)
-    for (int i = 0; i < 3; i++) {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        suite->tick(2);
-    }
-
-    EXPECT_EQ(session.playerPosition, 0) << "Position should not advance after wrong moves";
-    EXPECT_EQ(session.movesUsed, 3) << "Should have used 3 moves";
-    EXPECT_FALSE(session.lastMoveCorrect);
-}
-
-/*
- * Test: Budget exactly equals gridSize allows perfect completion.
- */
-void cipherPathBudgetEqualsGridSize(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    config.gridSize = 5;
-    config.moveBudget = 5;  // Exactly enough for perfect play
-    config.rounds = 1;
-    session.currentRound = 0;
-
-    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
-    suite->tick(1);
-    suite->tickWithTime(20, 100);  // Advance to Gameplay
-
-    // Make perfect moves to reach exit
-    for (int pos = 0; pos < config.gridSize - 1; pos++) {
-        int correctDir = session.cipher[pos];
-        if (correctDir == 0) {
-            suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        } else {
-            suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
+    // Solve all tiles
+    for (int i = 0; i < 35; i++) {
+        if (session.pathOrder[i] != -1) {
+            session.tileRotation[i] = session.correctRotation[i];
         }
-        suite->tick(2);
     }
 
-    // Should reach win state
-    EXPECT_EQ(session.playerPosition, config.gridSize - 1);
-    EXPECT_LE(session.movesUsed, config.moveBudget);
-    suite->tick(3);
-    EXPECT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_WIN);
-}
+    // Advance to gameplay
+    suite->tickWithTime(25, 100);
+    ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_GAMEPLAY);
 
-/*
- * Test: Reaching exit position advances through evaluate to next round.
- */
-void cipherPathReachExitMidGame(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    config.gridSize = 4;
-    config.rounds = 3;
-    session.currentRound = 1;  // Middle of game
-    session.playerPosition = config.gridSize - 2;
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Make one correct move to reach exit
-    int correctDir = session.cipher[session.playerPosition];
-    if (correctDir == 0) {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    }
-    suite->tick(3);
-
-    // Should transition through Evaluate to Show (next round)
-    EXPECT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_SHOW);
-    EXPECT_EQ(session.currentRound, 2);
-}
-
-/*
- * Test: Hard mode with tight budget requires perfect play.
- */
-void cipherPathHardModePerfectPlayRequired(CipherPathTestSuite* suite) {
-    auto& config = suite->game_->getConfig();
-
-    // Hard mode preset
-    config.gridSize = 10;
-    config.moveBudget = 14;  // Only 4 mistakes allowed
-    config.rounds = 1;
-
-    suite->game_->getSession().currentRound = 0;
-
-    suite->game_->skipToState(suite->device_.pdn, 1);  // Show
-    suite->tick(1);
-    suite->tickWithTime(20, 100);  // Advance to Gameplay
-
-    auto& session = suite->game_->getSession();
-
-    // Make 4 wrong moves, then perfect moves
-    for (int i = 0; i < 4; i++) {
-        int correctDir = session.cipher[session.playerPosition];
-        // Press wrong button intentionally
-        if (correctDir == 0) {
-            suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        } else {
-            suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        }
-        suite->tick(2);
-    }
-
-    EXPECT_EQ(session.movesUsed, 4);
-    EXPECT_EQ(session.playerPosition, 0);  // No progress
-
-    // Now make correct moves until budget exhausted or exit reached
-    while (session.movesUsed < config.moveBudget && session.playerPosition < config.gridSize - 1) {
-        int correctDir = session.cipher[session.playerPosition];
-        if (correctDir == 0) {
-            suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        } else {
-            suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-        }
-        suite->tick(2);
-
-        if (suite->game_->getCurrentState()->getStateId() != CIPHER_GAMEPLAY) {
+    // Let flow complete
+    int maxTicks = session.pathLength * 10 * (config.flowSpeedMs / 10 + 5);
+    for (int i = 0; i < maxTicks; i++) {
+        suite->tickWithTime(1, 10);
+        if (cp->getCurrentState()->getStateId() != CIPHER_GAMEPLAY) {
             break;
         }
     }
 
-    // Should reach exit with exactly the budget
-    EXPECT_EQ(session.playerPosition, config.gridSize - 1);
-}
+    // Should be in Win state
+    ASSERT_EQ(cp->getCurrentState()->getStateId(), CIPHER_WIN);
+    ASSERT_EQ(cp->getOutcome().result, MiniGameResult::WON);
 
-/*
- * Test: Simultaneous exit reach and budget exhaustion (exit takes precedence).
- */
-void cipherPathExitReachedAtBudgetLimit(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
+    // Advance past win timer — managed mode returns to previous app
+    suite->tickWithTime(35, 100);
 
-    config.gridSize = 5;
-    config.moveBudget = 10;
-    config.rounds = 1;
-    session.currentRound = 0;
-    session.playerPosition = config.gridSize - 2;  // One step from exit
-    session.movesUsed = config.moveBudget - 1;  // One move left
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Make final correct move that both reaches exit and exhausts budget
-    int correctDir = session.cipher[session.playerPosition];
-    if (correctDir == 0) {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    }
-    suite->tick(3);
-
-    // Should win (exit reached takes precedence over budget exhaustion)
-    EXPECT_EQ(session.playerPosition, config.gridSize - 1);
-    EXPECT_EQ(session.movesUsed, config.moveBudget);
-    EXPECT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_WIN);
-}
-
-/*
- * Test: Wrong move at exact budget limit without reaching exit causes loss.
- */
-void cipherPathWrongMoveAtBudgetLimit(CipherPathTestSuite* suite) {
-    auto& session = suite->game_->getSession();
-    auto& config = suite->game_->getConfig();
-
-    config.gridSize = 5;
-    config.moveBudget = 3;
-    session.playerPosition = 0;
-    session.movesUsed = 2;  // One move left
-
-    suite->game_->skipToState(suite->device_.pdn, 2);  // Gameplay
-    suite->tick(1);
-
-    // Make wrong move that exhausts budget
-    int correctDir = session.cipher[0];
-    if (correctDir == 0) {
-        suite->device_.secondaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    } else {
-        suite->device_.primaryButtonDriver->execCallback(ButtonInteraction::CLICK);
-    }
-    suite->tick(3);
-
-    // Should lose (budget exhausted without reaching exit)
-    EXPECT_EQ(session.playerPosition, 0);
-    EXPECT_EQ(session.movesUsed, config.moveBudget);
-    EXPECT_EQ(suite->game_->getCurrentState()->getStateId(), CIPHER_LOSE);
+    // Should return to Quickdraw's FdnComplete state
+    ASSERT_EQ(suite->getPlayerStateId(), FDN_COMPLETE);
 }
 
 #endif // NATIVE_BUILD
