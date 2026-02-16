@@ -7,6 +7,7 @@
 #include <chrono>
 #include <atomic>
 #include <csignal>
+#include <memory>
 
 // Platform abstraction
 #include "utils/simple-timer.hpp"
@@ -41,7 +42,7 @@ void signalHandler(int signal) {
 
 // Structure to hold all drivers for a single device instance
 struct DeviceInstance {
-    // Drivers (owned by DriverManager via PDN, but we keep pointers for dashboard access)
+    // Drivers (raw pointers - ownership transferred to PDN's DriverManager)
     NativeClockDriver* clockDriver;
     NativeLoggerDriver* loggerDriver;
     NativeDisplayDriver* displayDriver;
@@ -54,11 +55,11 @@ struct DeviceInstance {
     NativeHttpClientDriver* httpClientDriver;
     NativePeerCommsDriver* peerCommsDriver;
     NativePrefsDriver* storageDriver;
-    
-    // Game objects
-    PDN* pdn;
-    Player* player;
-    Quickdraw* game;
+
+    // Game objects (owned by DeviceInstance)
+    std::unique_ptr<PDN> pdn;
+    std::unique_ptr<Player> player;
+    std::unique_ptr<Quickdraw> game;
     QuickdrawWirelessManager* wirelessManager;
 };
 
@@ -98,22 +99,22 @@ DeviceInstance createDeviceInstance(int deviceIndex) {
     };
     
     // Create PDN and game
-    instance.pdn = PDN::createPDN(pdnConfig);
-    instance.player = new Player();
+    instance.pdn = std::unique_ptr<PDN>(PDN::createPDN(pdnConfig));
+    instance.player = std::make_unique<Player>();
     instance.player->setUserID(IdGenerator(instance.clockDriver->milliseconds()).generateId());
     instance.pdn->begin();
-    
+
     // Create wireless manager for this device
     // Note: QuickdrawWirelessManager is a singleton, so we skip it for now
     // In a full implementation, we'd need per-device wireless managers
     instance.wirelessManager = nullptr;
-    
+
     // Create game
-    instance.game = new Quickdraw(instance.player, instance.pdn, instance.wirelessManager, nullptr);
+    instance.game = std::make_unique<Quickdraw>(instance.player.get(), instance.pdn.get(), instance.wirelessManager, nullptr);
 
     // Register state machines with the device and launch Quickdraw
     AppConfig apps = {
-        {StateId(QUICKDRAW_APP_ID), instance.game}
+        {StateId(QUICKDRAW_APP_ID), instance.game.get()}
     };
     instance.pdn->loadAppConfig(apps, StateId(QUICKDRAW_APP_ID));
     
@@ -149,12 +150,12 @@ int main(int argc, char** argv) {
     printf("Starting PDN Native Simulator with %d device(s)...\n", numDevices);
     
     // Create the first device's clock and logger for global use
-    NativeClockDriver* globalClock = new NativeClockDriver("global_clock");
-    NativeLoggerDriver* globalLogger = new NativeLoggerDriver("global_logger");
-    
+    auto globalClock = std::make_unique<NativeClockDriver>("global_clock");
+    auto globalLogger = std::make_unique<NativeLoggerDriver>("global_logger");
+
     // Set up global platform abstractions
-    g_logger = globalLogger;
-    SimpleTimer::setPlatformClock(globalClock);
+    g_logger = globalLogger.get();
+    SimpleTimer::setPlatformClock(globalClock.get());
     
     // Seed the ID generator
     IdGenerator(globalClock->milliseconds()).seed(globalClock->milliseconds());
@@ -168,8 +169,8 @@ int main(int argc, char** argv) {
     
     for (int i = 0; i < numDevices; i++) {
         devices.push_back(createDeviceInstance(i));
-        pdnPtrs.push_back(devices[i].pdn);
-        gamePtrs.push_back(devices[i].game);
+        pdnPtrs.push_back(devices[i].pdn.get());
+        gamePtrs.push_back(devices[i].game.get());
         lightPtrs.push_back(devices[i].lightDriver);
         peerPtrs.push_back(devices[i].peerCommsDriver);
     }
@@ -243,18 +244,11 @@ int main(int argc, char** argv) {
     #endif
     
     printf("Shutting down...\n");
-    
-    // Clean up devices
-    for (auto& device : devices) {
-        delete device.game;
-        delete device.player;
-        delete device.pdn;  // This deletes drivers via DriverManager::dismountDrivers()
-        // Note: drivers are deleted by PDN's destructor, so we don't delete them here
-    }
 
-    // Clean up global drivers (these are NOT owned by any PDN instance)
-    delete globalLogger;
-    delete globalClock;
+    // Clean up devices - unique_ptr handles deletion automatically
+    devices.clear();
+
+    // Clean up global drivers - unique_ptr handles deletion automatically
 
     return 0;
 }

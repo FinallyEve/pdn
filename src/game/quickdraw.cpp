@@ -1,77 +1,135 @@
 #include "../../include/game/quickdraw.hpp"
+#include <memory>
 
 Quickdraw::Quickdraw(Player* player, Device* PDN, QuickdrawWirelessManager* quickdrawWirelessManager, RemoteDebugManager* remoteDebugManager): StateMachine(QUICKDRAW_APP_ID) {
     this->player = player;
     this->quickdrawWirelessManager = quickdrawWirelessManager;
     this->remoteDebugManager = remoteDebugManager;
     this->wirelessManager = PDN->getWirelessManager();
-    this->matchManager = new MatchManager();
+    this->matchManager = std::make_unique<MatchManager>();
     this->storageManager = PDN->getStorage();
     this->peerComms = PDN->getPeerComms();
-    this->progressManager = new ProgressManager();
+    this->progressManager = std::make_unique<ProgressManager>();
     this->progressManager->initialize(player, storageManager);
-    this->fdnResultManager = new FdnResultManager();
+    this->fdnResultManager = std::make_unique<FdnResultManager>();
     this->fdnResultManager->initialize(storageManager);
     PDN->setActiveComms(player->isHunter() ? SerialIdentifier::OUTPUT_JACK : SerialIdentifier::INPUT_JACK);
 }
 
 Quickdraw::~Quickdraw() {
+    // Clean up states before managers to ensure proper destruction order.
+    // Base class StateMachine will try to delete them too, but the vector will be empty.
+    for (auto state: stateMap) {
+        delete state;
+    }
+    stateMap.clear();
+
     player = nullptr;
     quickdrawWirelessManager = nullptr;
-    delete matchManager;
-    matchManager = nullptr;
     storageManager = nullptr;
     peerComms = nullptr;
-    delete progressManager;
-    progressManager = nullptr;
-    delete fdnResultManager;
-    fdnResultManager = nullptr;
     matches.clear();
+    // matchManager, progressManager, and fdnResultManager deleted automatically by unique_ptr
 }
 
 void Quickdraw::populateStateMap() {
     matchManager->initialize(player, storageManager, peerComms, quickdrawWirelessManager);
 
-    PlayerRegistration* playerRegistration = new PlayerRegistration(player, matchManager);
-    FetchUserDataState* fetchUserData = new FetchUserDataState(player, wirelessManager, remoteDebugManager, progressManager);
-    WelcomeMessage* welcomeMessage = new WelcomeMessage(player);
-    ConfirmOfflineState* confirmOffline = new ConfirmOfflineState(player);
-    ChooseRoleState* chooseRole = new ChooseRoleState(player);
+    PlayerRegistration* playerRegistration = std::make_unique<PlayerRegistration>(player, matchManager.get()).release();
+    stateMap.push_back(playerRegistration);
 
-    AwakenSequence* awakenSequence = new AwakenSequence(player);
-    Idle* idle = new Idle(player, matchManager, quickdrawWirelessManager, progressManager);
-    
-    HandshakeInitiateState* handshakeInitiate = new HandshakeInitiateState(player);
-    BountySendConnectionConfirmedState* bountySendCC = new BountySendConnectionConfirmedState(player, matchManager, quickdrawWirelessManager);
-    HunterSendIdState* hunterSendId = new HunterSendIdState(player, matchManager, quickdrawWirelessManager);
+    FetchUserDataState* fetchUserData = std::make_unique<FetchUserDataState>(player, wirelessManager, remoteDebugManager, progressManager.get()).release();
+    stateMap.push_back(fetchUserData);
 
-    ConnectionSuccessful* connectionSuccessful = new ConnectionSuccessful(player);
-    
-    DuelCountdown* duelCountdown = new DuelCountdown(player, matchManager);
-    Duel* duel = new Duel(player, matchManager, quickdrawWirelessManager);
-    DuelPushed* duelPushed = new DuelPushed(player, matchManager);
-    DuelReceivedResult* duelReceivedResult = new DuelReceivedResult(player, matchManager, quickdrawWirelessManager);
-    DuelResult* duelResult = new DuelResult(player, matchManager, quickdrawWirelessManager);
-    
-    Win* win = new Win(player);
-    Lose* lose = new Lose(player);
-    
-    Sleep* sleep = new Sleep(player);
-    UploadMatchesState* uploadMatches = new UploadMatchesState(player, wirelessManager, matchManager, fdnResultManager);
+    WelcomeMessage* welcomeMessage = std::make_unique<WelcomeMessage>(player).release();
+    stateMap.push_back(welcomeMessage);
 
-    FdnDetected* fdnDetected = new FdnDetected(player, &difficultyScaler);
-    FdnReencounter* fdnReencounter = new FdnReencounter(player, &difficultyScaler);
-    FdnComplete* fdnComplete = new FdnComplete(player, progressManager, fdnResultManager, &difficultyScaler);
-    ColorProfilePrompt* colorProfilePrompt = new ColorProfilePrompt(player, progressManager);
-    ColorProfilePicker* colorProfilePicker = new ColorProfilePicker(player, progressManager);
-    BoonAwarded* boonAwarded = new BoonAwarded(player, progressManager);
-    KonamiPuzzle* konamiPuzzle = new KonamiPuzzle(player);
-    ConnectionLost* connectionLost = new ConnectionLost(player);
+    ConfirmOfflineState* confirmOffline = std::make_unique<ConfirmOfflineState>(player).release();
+    stateMap.push_back(confirmOffline);
 
-    KonamiCodeEntry* konamiCodeEntry = new KonamiCodeEntry(player);
-    KonamiCodeAccepted* konamiCodeAccepted = new KonamiCodeAccepted(player, progressManager);
-    KonamiCodeRejected* konamiCodeRejected = new KonamiCodeRejected(player);
-    GameOverReturnIdle* gameOverReturnIdle = new GameOverReturnIdle(player);
+    ChooseRoleState* chooseRole = std::make_unique<ChooseRoleState>(player).release();
+    stateMap.push_back(chooseRole);
+
+    AwakenSequence* awakenSequence = std::make_unique<AwakenSequence>(player).release();
+    stateMap.push_back(awakenSequence);
+
+    Idle* idle = std::make_unique<Idle>(player, matchManager.get(), quickdrawWirelessManager, progressManager.get()).release();
+    stateMap.push_back(idle);
+
+    HandshakeInitiateState* handshakeInitiate = std::make_unique<HandshakeInitiateState>(player).release();
+    stateMap.push_back(handshakeInitiate);
+
+    BountySendConnectionConfirmedState* bountySendCC = std::make_unique<BountySendConnectionConfirmedState>(player, matchManager.get(), quickdrawWirelessManager).release();
+    stateMap.push_back(bountySendCC);
+
+    HunterSendIdState* hunterSendId = std::make_unique<HunterSendIdState>(player, matchManager.get(), quickdrawWirelessManager).release();
+    stateMap.push_back(hunterSendId);
+
+    ConnectionSuccessful* connectionSuccessful = std::make_unique<ConnectionSuccessful>(player).release();
+    stateMap.push_back(connectionSuccessful);
+
+    DuelCountdown* duelCountdown = std::make_unique<DuelCountdown>(player, matchManager.get()).release();
+    stateMap.push_back(duelCountdown);
+
+    Duel* duel = std::make_unique<Duel>(player, matchManager.get(), quickdrawWirelessManager).release();
+    stateMap.push_back(duel);
+
+    DuelPushed* duelPushed = std::make_unique<DuelPushed>(player, matchManager.get()).release();
+    stateMap.push_back(duelPushed);
+
+    DuelReceivedResult* duelReceivedResult = std::make_unique<DuelReceivedResult>(player, matchManager.get(), quickdrawWirelessManager).release();
+    stateMap.push_back(duelReceivedResult);
+
+    DuelResult* duelResult = std::make_unique<DuelResult>(player, matchManager.get(), quickdrawWirelessManager).release();
+    stateMap.push_back(duelResult);
+
+    Win* win = std::make_unique<Win>(player).release();
+    stateMap.push_back(win);
+
+    Lose* lose = std::make_unique<Lose>(player).release();
+    stateMap.push_back(lose);
+
+    Sleep* sleep = std::make_unique<Sleep>(player).release();
+    stateMap.push_back(sleep);
+
+    UploadMatchesState* uploadMatches = std::make_unique<UploadMatchesState>(player, wirelessManager, matchManager.get(), fdnResultManager.get()).release();
+    stateMap.push_back(uploadMatches);
+
+    FdnDetected* fdnDetected = std::make_unique<FdnDetected>(player, &difficultyScaler).release();
+    stateMap.push_back(fdnDetected);
+
+    FdnReencounter* fdnReencounter = std::make_unique<FdnReencounter>(player, &difficultyScaler).release();
+    stateMap.push_back(fdnReencounter);
+
+    FdnComplete* fdnComplete = std::make_unique<FdnComplete>(player, progressManager.get(), fdnResultManager.get(), &difficultyScaler).release();
+    stateMap.push_back(fdnComplete);
+
+    ColorProfilePrompt* colorProfilePrompt = std::make_unique<ColorProfilePrompt>(player, progressManager.get()).release();
+    stateMap.push_back(colorProfilePrompt);
+
+    ColorProfilePicker* colorProfilePicker = std::make_unique<ColorProfilePicker>(player, progressManager.get()).release();
+    stateMap.push_back(colorProfilePicker);
+
+    BoonAwarded* boonAwarded = std::make_unique<BoonAwarded>(player, progressManager.get()).release();
+    stateMap.push_back(boonAwarded);
+
+    KonamiPuzzle* konamiPuzzle = std::make_unique<KonamiPuzzle>(player).release();
+    stateMap.push_back(konamiPuzzle);
+
+    ConnectionLost* connectionLost = std::make_unique<ConnectionLost>(player).release();
+    stateMap.push_back(connectionLost);
+
+    KonamiCodeEntry* konamiCodeEntry = std::make_unique<KonamiCodeEntry>(player).release();
+    stateMap.push_back(konamiCodeEntry);
+
+    KonamiCodeAccepted* konamiCodeAccepted = std::make_unique<KonamiCodeAccepted>(player, progressManager.get()).release();
+    stateMap.push_back(konamiCodeAccepted);
+
+    KonamiCodeRejected* konamiCodeRejected = std::make_unique<KonamiCodeRejected>(player).release();
+    stateMap.push_back(konamiCodeRejected);
+
+    GameOverReturnIdle* gameOverReturnIdle = std::make_unique<GameOverReturnIdle>(player).release();
+    stateMap.push_back(gameOverReturnIdle);
 
     playerRegistration->addTransition(
         new StateTransition(

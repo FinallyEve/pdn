@@ -13,9 +13,8 @@ MatchManager::MatchManager()
     , quickdrawWirelessManager(nullptr) {
 }
 
-MatchManager::~MatchManager() { 
-    delete activeDuelState.match;
-    activeDuelState.match = nullptr;
+MatchManager::~MatchManager() {
+    // activeDuelState.match deleted automatically by unique_ptr
     quickdrawWirelessManager = nullptr;
     if (storage) {
         storage->end();
@@ -33,8 +32,7 @@ void MatchManager::clearCurrentMatch() {
         }
 
         LOG_I(MATCH_MANAGER_TAG, "Clearing current match");
-        delete activeDuelState.match;
-        activeDuelState.match = nullptr;
+        activeDuelState.match.reset();
         activeDuelState.hasReceivedDrawResult = false;
         activeDuelState.hasPressedButton = false;
         activeDuelState.duelLocalStartTime = 0;
@@ -50,8 +48,8 @@ Match* MatchManager::createMatch(const std::string& match_id, const std::string&
         return nullptr;
     }
 
-    activeDuelState.match = new Match(match_id, hunter_id, bounty_id);
-    return activeDuelState.match;
+    activeDuelState.match = std::make_unique<Match>(match_id, hunter_id, bounty_id);
+    return activeDuelState.match.get();
 }
 
 Match* MatchManager::receiveMatch(const Match& match) {
@@ -63,13 +61,13 @@ Match* MatchManager::receiveMatch(const Match& match) {
     }
 
     // Create a new Match object on the heap instead of storing a pointer to the parameter
-    activeDuelState.match = new Match(match.getMatchId(), match.getHunterId(), match.getBountyId());
+    activeDuelState.match = std::make_unique<Match>(match.getMatchId(), match.getHunterId(), match.getBountyId());
 
     // Copy draw times
     activeDuelState.match->setHunterDrawTime(match.getHunterDrawTime());
     activeDuelState.match->setBountyDrawTime(match.getBountyDrawTime());
 
-    return activeDuelState.match;
+    return activeDuelState.match.get();
 }
 
 void MatchManager::setDuelLocalStartTime(unsigned long local_start_time_ms) {
@@ -122,14 +120,14 @@ bool MatchManager::finalizeMatch() {
     std::string match_id = activeDuelState.match->getMatchId();
 
     // Save to storage
-    if (appendMatchToStorage(activeDuelState.match)) {
+    if (appendMatchToStorage(activeDuelState.match.get())) {
         // Update stored count
         updateStoredMatchCount(getStoredMatchCount() + 1);
         clearCurrentMatch();
         LOG_I(MATCH_MANAGER_TAG, "Successfully finalized match %s\n", match_id.c_str());
         return true;
     }
-    
+
     LOG_E("PDN", "Failed to finalize match %s\n", match_id.c_str());
     return false;
 }
@@ -263,7 +261,7 @@ Match* MatchManager::readMatchFromStorage(uint8_t index) {
     // Create key for this match
     char key[16];
     snprintf(key, sizeof(key), "%s%d", PREF_MATCH_KEY, index);
-    
+
     // Read match JSON from preferences
     std::string matchJson = storage->read(key, "");
     if (matchJson.empty()) {
@@ -271,9 +269,9 @@ Match* MatchManager::readMatchFromStorage(uint8_t index) {
     }
 
     // Create and deserialize match
-    Match* match = new Match();
+    auto match = std::make_unique<Match>();
     match->fromJson(matchJson);
-    return match;
+    return match.release();
 }
 
 parameterizedCallbackFunction MatchManager::getButtonMasher() {

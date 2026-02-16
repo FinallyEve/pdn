@@ -7,6 +7,7 @@
 #include "game/konami-states/konami-code-result.hpp"
 #include "game/konami-states/mastery-replay.hpp"
 #include "game/progress-manager.hpp"
+#include <memory>
 
 KonamiMetaGame::KonamiMetaGame(Player* player) :
     StateMachine(KONAMI_METAGAME_APP_ID),
@@ -40,8 +41,7 @@ void KonamiMetaGame::populateStateMap() {
     ProgressManager* progressManager = nullptr;  // TODO: Wire from device context
 
     // [0] Handshake - routing brain
-    KonamiHandshake* handshake = new KonamiHandshake(player);
-    stateMap.push_back(handshake);
+    stateMap.push_back(std::make_unique<KonamiHandshake>(player).release());
 
     // [1-7] EasyLaunch - first encounter with each game
     // Order: SIGNAL_ECHO, GHOST_RUNNER, SPIKE_VECTOR, FIREWALL_DECRYPT, CIPHER_PATH, EXPLOIT_SEQUENCER, BREACH_DEFENSE
@@ -51,51 +51,41 @@ void KonamiMetaGame::populateStateMap() {
         GameType::BREACH_DEFENSE
     };
     for (int i = 0; i < 7; i++) {
-        GameLaunchState* easyLaunch = new GameLaunchState(1 + i, easyGames[i], LaunchMode::EASY_FIRST_ENCOUNTER);
-        stateMap.push_back(easyLaunch);
+        stateMap.push_back(std::make_unique<GameLaunchState>(1 + i, easyGames[i], LaunchMode::EASY_FIRST_ENCOUNTER).release());
     }
 
     // [8-14] ReplayEasy - button already earned
     for (int i = 0; i < 7; i++) {
-        GameLaunchState* replayEasy = new GameLaunchState(8 + i, easyGames[i], LaunchMode::EASY_REPLAY);
-        stateMap.push_back(replayEasy);
+        stateMap.push_back(std::make_unique<GameLaunchState>(8 + i, easyGames[i], LaunchMode::EASY_REPLAY).release());
     }
 
     // [15-21] HardLaunch - hard mode unlocked
     for (int i = 0; i < 7; i++) {
-        GameLaunchState* hardLaunch = new GameLaunchState(15 + i, easyGames[i], LaunchMode::HARD_FIRST_ENCOUNTER);
-        stateMap.push_back(hardLaunch);
+        stateMap.push_back(std::make_unique<GameLaunchState>(15 + i, easyGames[i], LaunchMode::HARD_FIRST_ENCOUNTER).release());
     }
 
     // [22-28] MasteryReplay - mode select menu
     for (int i = 0; i < 7; i++) {
-        MasteryReplay* masteryReplay = new MasteryReplay(22 + i, easyGames[i]);
-        stateMap.push_back(masteryReplay);
+        stateMap.push_back(std::make_unique<MasteryReplay>(22 + i, easyGames[i]).release());
     }
 
     // [29] ButtonAwarded
-    KmgButtonAwarded* buttonAwarded = new KmgButtonAwarded(player, progressManager);
-    stateMap.push_back(buttonAwarded);
+    stateMap.push_back(std::make_unique<KmgButtonAwarded>(player, progressManager).release());
 
     // [30] BoonAwarded
-    KonamiBoonAwarded* boonAwarded = new KonamiBoonAwarded(player, progressManager);
-    stateMap.push_back(boonAwarded);
+    stateMap.push_back(std::make_unique<KonamiBoonAwarded>(player, progressManager).release());
 
     // [31] GameOverReturn
-    KonamiGameOverReturn* gameOverReturn = new KonamiGameOverReturn(player);
-    stateMap.push_back(gameOverReturn);
+    stateMap.push_back(std::make_unique<KonamiGameOverReturn>(player).release());
 
     // [32] CodeEntry
-    KonamiCodeEntry* codeEntry = new KonamiCodeEntry(player);
-    stateMap.push_back(codeEntry);
+    stateMap.push_back(std::make_unique<KonamiCodeEntry>(player).release());
 
     // [33] CodeAccepted
-    KonamiCodeAccepted* codeAccepted = new KonamiCodeAccepted(player, progressManager);
-    stateMap.push_back(codeAccepted);
+    stateMap.push_back(std::make_unique<KonamiCodeAccepted>(player, progressManager).release());
 
     // [34] CodeRejected
-    KonamiCodeRejected* codeRejected = new KonamiCodeRejected(player);
-    stateMap.push_back(codeRejected);
+    stateMap.push_back(std::make_unique<KonamiCodeRejected>(player).release());
 
     // Wire up all transitions
     wireTransitions();
