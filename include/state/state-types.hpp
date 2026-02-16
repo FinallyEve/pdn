@@ -22,5 +22,13 @@ struct StateId {
         return id < other.id;
     }
 
+    bool operator==(const StateId& other) const {
+        return id == other.id;
+    }
+
+    bool operator!=(const StateId& other) const {
+        return id != other.id;
+    }
+
     int id;
 };
