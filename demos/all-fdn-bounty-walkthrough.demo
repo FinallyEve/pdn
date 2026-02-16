@@ -1,0 +1,267 @@
+# All-FDN Bounty Walkthrough Demo
+# Uses program 2 to get a bounty player (device 1), walks through 6 FDN encounters
+# Tests: bounty-role FDN handshake, minigames, Konami collection
+# Runtime: ~5 minutes
+# Usage: .pio/build/native_cli/program 2 --script demos/all-fdn-bounty-walkthrough.demo
+#
+# NOTE: Skips Cipher Path to stay within MAX_DEVICES=8 (2 players + 6 NPCs)
+# Device 0 = Hunter (idle), Device 1 = Bounty (active player)
+
+# ========================================
+# STARTUP: Wait for both devices to reach Idle
+# ========================================
+wait 8
+state
+
+# ========================================
+# SPAWN 6 FDN NPCs (devices 2-7)
+# ========================================
+# Device 0: Hunter (idle)
+# Device 1: Bounty (active player)
+# Device 2: Ghost Runner
+# Device 3: Spike Vector
+# Device 4: Firewall Decrypt
+# Device 5: Exploit Sequencer
+# Device 6: Breach Defense
+# Device 7: Signal Echo
+
+add npc ghost-runner
+add npc spike-vector
+add npc firewall-decrypt
+add npc exploit-sequencer
+add npc breach-defense
+add npc signal-echo
+
+select 1
+wait 1
+state
+role 1
+
+# ========================================
+# FDN 1/6: Ghost Runner (Device 2)
+# ========================================
+
+cable 1 2
+wait 4
+
+# Round 1: ghost to zone center
+wait 2.5
+b 1
+
+# Round 2
+wait 4
+b 1
+
+# Round 3
+wait 4
+b 1
+
+# Round 4
+wait 4
+b 1
+
+# Win (3s) + FdnComplete (3s) + buffer
+wait 8
+state
+cable -d 1 2
+select 1
+konami
+wait 1
+
+# ========================================
+# FDN 2/6: Spike Vector (Device 3)
+# 5 waves — use longer waits
+# ========================================
+
+cable 1 3
+wait 4
+
+# Wave 1
+wait 3
+b 1
+
+# Wave 2
+wait 5
+b2 1
+
+# Wave 3
+wait 5
+b 1
+
+# Wave 4
+wait 5
+b2 1
+
+# Wave 5
+wait 5
+b 1
+
+wait 10
+state
+cable -d 1 3
+select 1
+konami
+wait 1
+
+# ========================================
+# FDN 3/6: Firewall Decrypt (Device 4)
+# ========================================
+
+cable 1 4
+wait 4
+
+# Round 1: scroll and confirm
+wait 2
+b 1
+wait 0.3
+b2 1
+wait 2
+
+# Round 2
+b 1
+wait 0.3
+b2 1
+wait 2
+
+# Round 3
+b 1
+wait 0.3
+b2 1
+
+wait 10
+state
+cable -d 1 4
+select 1
+konami
+wait 1
+
+# ========================================
+# FDN 4/6: Exploit Sequencer (Device 5)
+# ========================================
+
+cable 1 5
+wait 4
+
+# Seq 1, Exploit 1
+wait 2
+b 1
+
+# Seq 1, Exploit 2
+wait 4
+b 1
+
+# Seq 2, Exploit 1
+wait 4
+b 1
+
+# Seq 2, Exploit 2
+wait 4
+b 1
+
+wait 10
+state
+cable -d 1 5
+select 1
+konami
+wait 1
+
+# ========================================
+# FDN 5/6: Breach Defense (Device 6)
+# EASY: 6 threats, 3 breaches allowed, 3 lanes, 40ms/step
+# ========================================
+
+cable 1 6
+wait 4
+
+# Threat 1
+wait 3
+b2 1
+
+# Threat 2
+wait 5
+b 1
+
+# Threat 3
+wait 5
+b2 1
+
+# Threat 4
+wait 5
+b 1
+
+# Threat 5
+wait 5
+b2 1
+
+# Threat 6
+wait 5
+b 1
+
+wait 10
+state
+cable -d 1 6
+select 1
+konami
+wait 1
+
+# ========================================
+# FDN 6/6: Signal Echo (Device 7)
+# ========================================
+
+cable 1 7
+wait 4
+
+# Show sequence
+wait 3
+
+# Player input
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 2
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 3
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 4
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+wait 10
+state
+cable -d 1 7
+wait 1
+
+# ========================================
+# FINAL STATUS
+# ========================================
+select 1
+konami
+state
+role 1

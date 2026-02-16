@@ -1,0 +1,350 @@
+# All-FDN Walkthrough Demo
+# Spawns 1 player + 7 FDN NPCs simultaneously, walks through each encounter
+# Tests: FDN handshake, all 7 minigames, Konami collection, boon unlock
+# Runtime: ~6 minutes
+# Usage: .pio/build/native_cli/program 1 --script demos/all-fdn-walkthrough.demo
+#
+# NOTE: Due to random game sequences, some games may be lost.
+# The demo validates the FLOW (handshake → game → complete → next NPC)
+# regardless of individual game outcomes.
+#
+# KNOWN ISSUES:
+# - NPC message flood on cable connect (#205)
+# - FdnDetected empty message on resume (#206)
+# - konami <device> resets progress (#204) — use select + konami (no arg)
+
+# ========================================
+# STARTUP: Wait for player to reach Idle
+# WelcomeMessage (5s) + AwakenSequence (2s) + buffer
+# ========================================
+wait 8
+state
+
+# ========================================
+# SPAWN ALL 7 FDN NPCs
+# ========================================
+# Device 0: Player (Hunter)
+# Device 1: Ghost Runner
+# Device 2: Spike Vector
+# Device 3: Firewall Decrypt
+# Device 4: Cipher Path
+# Device 5: Exploit Sequencer
+# Device 6: Breach Defense
+# Device 7: Signal Echo
+
+add npc ghost-runner
+add npc spike-vector
+add npc firewall-decrypt
+add npc cipher-path
+add npc exploit-sequencer
+add npc breach-defense
+add npc signal-echo
+
+select 0
+wait 1
+state
+
+# ========================================
+# FDN 1/7: Ghost Runner (Device 1)
+# Ghost speed: 50ms/pos, zone: 35-65, 4 rounds, 3 misses allowed
+# Total: ~20s gameplay + 6s win/complete = ~26s
+# ========================================
+
+cable 0 1
+
+# Handshake (~0.1s) + Intro (2s) + Show (1.5s) = ~3.6s
+wait 4
+
+# Round 1: ghost to zone center (50pos × 50ms = 2.5s)
+wait 2.5
+b 0
+
+# Round 2: Show (1.5s) + ghost travel (2.5s) = 4s
+wait 4
+b 0
+
+# Round 3
+wait 4
+b 0
+
+# Round 4
+wait 4
+b 0
+
+# Win (3s) + FdnComplete (3s) + buffer
+wait 8
+state
+cable -d 0 1
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 2/7: Spike Vector (Device 2)
+# 5 waves, wall advances to player, dodge by matching gap position
+# Each wave: Show (1.5s) + Gameplay (~6s wall travel) + Evaluate
+# Total: ~45s gameplay + 6s complete
+# ========================================
+
+cable 0 2
+
+# Handshake + Intro (2s) + Show (1.5s)
+wait 4
+
+# Wave 1: gameplay starts, press UP to try matching gap
+wait 3
+b 0
+
+# Wave 2: Show (1.5s) + gameplay
+wait 5
+b2 0
+
+# Wave 3
+wait 5
+b 0
+
+# Wave 4
+wait 5
+b2 0
+
+# Wave 5
+wait 5
+b 0
+
+# Win/Lose (3s) + FdnComplete (3s) + extra buffer for 5-wave game
+wait 10
+state
+cable -d 0 2
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 3/7: Firewall Decrypt (Device 3)
+# 3 rounds, select correct IP from 5 candidates
+# Each round: Scan (show candidates) → select → evaluate
+# ========================================
+
+cable 0 3
+
+# Handshake + Intro (2s)
+wait 4
+
+# Round 1: scroll to first candidate and confirm
+wait 2
+b 0
+wait 0.3
+b2 0
+wait 2
+
+# Round 2
+b 0
+wait 0.3
+b2 0
+wait 2
+
+# Round 3
+b 0
+wait 0.3
+b2 0
+
+# Win/Lose (3s) + FdnComplete (3s) + buffer
+wait 10
+state
+cable -d 0 3
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 4/7: Cipher Path (Device 4)
+# EASY: 2 rounds, gridSize=6, moveBudget=12
+# Player navigates path from 0→5 with UP/DOWN guesses
+# ========================================
+
+cable 0 4
+
+# Handshake + Intro (2s) + Show (1.5s)
+wait 4
+
+# Round 1: make 6 directional guesses (alternating for best odds)
+wait 2
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 2
+
+# If round complete, Show (1.5s) + Round 2: 6 more guesses
+wait 2
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+wait 0.3
+b 0
+wait 0.3
+b2 0
+
+# Win/Lose (3s) + FdnComplete (3s) + buffer for extra moves
+wait 15
+state
+cable -d 0 4
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 5/7: Exploit Sequencer (Device 5)
+# EASY: 2 sequences × 2 exploits, marker at 50, window +/-15
+# Speed 40ms/step, screen 100 positions
+# Zone center at: 50 × 40ms = 2000ms
+# ========================================
+
+cable 0 5
+
+# Handshake + Intro (2s) + Show (1.5s)
+wait 4
+
+# Seq 1, Exploit 1: wait for marker zone, press
+wait 2
+b 0
+
+# Seq 1, Exploit 2: Show (1.5s) + travel (2s)
+wait 4
+b 0
+
+# Seq 2, Exploit 1
+wait 4
+b 0
+
+# Seq 2, Exploit 2
+wait 4
+b 0
+
+# Win/Lose (3s) + FdnComplete (3s) + buffer
+wait 10
+state
+cable -d 0 5
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 6/7: Breach Defense (Device 6)
+# EASY: 6 threats, 3 breaches allowed, 3 lanes, 40ms/step
+# ========================================
+
+cable 0 6
+
+# Handshake + Intro (2s) + Show (1.5s)
+wait 4
+
+# Threat 1: wait for threat, press to position shield
+wait 3
+b2 0
+
+# Threat 2: Show (1.5s) + gameplay
+wait 5
+b 0
+
+# Threat 3
+wait 5
+b2 0
+
+# Threat 4
+wait 5
+b 0
+
+# Threat 5
+wait 5
+b2 0
+
+# Threat 6
+wait 5
+b 0
+
+# Win/Lose (3s) + FdnComplete (3s) + buffer
+wait 10
+state
+cable -d 0 6
+select 0
+konami
+wait 1
+
+# ========================================
+# FDN 7/7: Signal Echo (Device 7)
+# EASY: 4 signals × 4 sequences, 600ms/signal display, 3 mistakes allowed
+# ========================================
+
+cable 0 7
+
+# Handshake + Intro (2s)
+wait 4
+
+# Show sequence: 4 signals × 600ms = 2.4s
+wait 3
+
+# Player input: reproduce sequence (alternating for best odds with random seq)
+# With 3 mistakes allowed and 4 signals, alternating wins ~75% of the time
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 2
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 3
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 4
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Win/Lose (3s) + FdnComplete (3s) + buffer
+wait 10
+state
+cable -d 0 7
+wait 1
+
+# ========================================
+# FINAL STATUS
+# ========================================
+select 0
+konami
+state
+role 0

@@ -60,5 +60,10 @@ compile_commands.json
 
 .cursor/
 
+# Agent artifacts (per-VM, not shared)
+.agent-checkpoint.json
+.cmux/
+CLAUDE-agent*.md
+
 # WiFi credentials (sensitive data)
 wifi_credentials.ini

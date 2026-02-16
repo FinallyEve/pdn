@@ -1,0 +1,339 @@
+# 3-Player Test: 2 Bounties + 1 Hunter + 7 FDN NPCs
+# Tests: multi-player FDN encounters, bounty-majority role mixing
+# Runtime: ~8 minutes
+# Usage: .pio/build/native_cli/program 3 --script demos/3player-2bounty-1hunter.demo
+#
+# program 3 creates: Device 0 = Hunter, Device 1 = Bounty, Device 2 = Hunter
+# We need 2 bounties + 1 hunter, so we add a bounty manually:
+#   Device 0 = Hunter (0010) — active player
+#   Device 1 = Bounty (0011) — active player
+#   Device 2 = Hunter (0012) — sits idle (unused)
+#   Then: add bounty → Device 3 = Bounty — active player
+#   Devices 4-10... but we only have 10 slots, so 3 players + 7 NPCs = 10.
+#   With program 3 giving us an unwanted hunter, we'd need 11. Instead:
+#
+# REVISED APPROACH: program 1 (1 hunter) + add bounty + add bounty = 3 players
+#   Device 0 = Hunter (0010)
+#   Device 1 = Bounty (added)
+#   Device 2 = Bounty (added)
+#   Devices 3-9 = 7 FDN NPCs
+#
+# Strategy: Player 1 (Bounty) plays Ghost Runner, Spike Vector, Firewall Decrypt
+#           Player 2 (Bounty) plays Cipher Path, Exploit Sequencer
+#           Player 0 (Hunter) plays Breach Defense, Signal Echo
+
+# ========================================
+# STARTUP: Wait for player 0 to reach Idle
+# ========================================
+wait 8
+state
+
+# ========================================
+# ADD 2 BOUNTY PLAYERS
+# ========================================
+add bounty
+add bounty
+
+# Wait for new bounty players to complete startup
+# WelcomeMessage (5s) + AwakenSequence (2s) + buffer
+select 0
+wait 10
+state
+role 0
+role 1
+role 2
+
+# ========================================
+# SPAWN ALL 7 FDN NPCs (devices 3-9)
+# ========================================
+add npc ghost-runner
+add npc spike-vector
+add npc firewall-decrypt
+add npc cipher-path
+add npc exploit-sequencer
+add npc breach-defense
+add npc signal-echo
+
+select 0
+wait 1
+state
+
+# ========================================
+# PLAYER 1 (Bounty) → Ghost Runner (Device 3)
+# ========================================
+
+cable 1 3
+wait 4
+
+# Round 1
+wait 2.5
+b 1
+
+# Round 2
+wait 4
+b 1
+
+# Round 3
+wait 4
+b 1
+
+# Round 4
+wait 4
+b 1
+
+# Win (3s) + FdnComplete (3s) + buffer
+wait 8
+state
+cable -d 1 3
+select 1
+konami
+wait 1
+
+# ========================================
+# PLAYER 1 (Bounty) → Spike Vector (Device 4)
+# 5 waves
+# ========================================
+
+cable 1 4
+wait 4
+
+# Wave 1
+wait 3
+b 1
+
+# Wave 2
+wait 5
+b2 1
+
+# Wave 3
+wait 5
+b 1
+
+# Wave 4
+wait 5
+b2 1
+
+# Wave 5
+wait 5
+b 1
+
+wait 10
+state
+cable -d 1 4
+select 1
+konami
+wait 1
+
+# ========================================
+# PLAYER 1 (Bounty) → Firewall Decrypt (Device 5)
+# ========================================
+
+cable 1 5
+wait 4
+
+# Round 1: scroll and confirm
+wait 2
+b 1
+wait 0.3
+b2 1
+wait 2
+
+# Round 2
+b 1
+wait 0.3
+b2 1
+wait 2
+
+# Round 3
+b 1
+wait 0.3
+b2 1
+
+wait 10
+state
+cable -d 1 5
+select 1
+konami
+wait 2
+
+# ========================================
+# PLAYER 2 (Bounty) → Cipher Path (Device 6)
+# ========================================
+
+cable 2 6
+wait 4
+
+# Round 1: 6 directional guesses
+wait 2
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 2
+
+# Round 2: 6 more guesses
+wait 2
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+
+wait 15
+state
+cable -d 2 6
+select 2
+konami
+wait 2
+
+# ========================================
+# PLAYER 2 (Bounty) → Exploit Sequencer (Device 7)
+# ========================================
+
+cable 2 7
+wait 4
+
+# Seq 1, Exploit 1
+wait 2
+b 2
+
+# Seq 1, Exploit 2
+wait 4
+b 2
+
+# Seq 2, Exploit 1
+wait 4
+b 2
+
+# Seq 2, Exploit 2
+wait 4
+b 2
+
+wait 10
+state
+cable -d 2 7
+select 2
+konami
+wait 2
+
+# ========================================
+# PLAYER 0 (Hunter) → Breach Defense (Device 8)
+# ========================================
+
+cable 0 8
+wait 4
+
+# Threat 1
+wait 3
+b2 0
+
+# Threat 2
+wait 5
+b 0
+
+# Threat 3
+wait 5
+b2 0
+
+# Threat 4
+wait 5
+b 0
+
+# Threat 5
+wait 5
+b2 0
+
+# Threat 6
+wait 5
+b 0
+
+wait 10
+state
+cable -d 0 8
+select 0
+konami
+wait 2
+
+# ========================================
+# PLAYER 0 (Hunter) → Signal Echo (Device 9)
+# ========================================
+
+cable 0 9
+wait 4
+
+# Show sequence
+wait 3
+
+# Sequence 1
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 2
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 3
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+# Sequence 4
+wait 4
+b 0
+wait 0.5
+b2 0
+wait 0.5
+b 0
+wait 0.5
+b2 0
+
+wait 10
+state
+cable -d 0 9
+wait 1
+
+# ========================================
+# FINAL STATUS — All 3 Players
+# ========================================
+select 0
+konami
+role 0
+
+select 1
+konami
+role 1
+
+select 2
+konami
+role 2
+
+state

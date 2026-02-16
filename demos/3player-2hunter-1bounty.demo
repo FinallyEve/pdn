@@ -1,0 +1,318 @@
+# 3-Player Test: 2 Hunters + 1 Bounty + 7 FDN NPCs
+# Tests: multi-player FDN encounters, role mixing, shared NPC pool
+# Runtime: ~8 minutes
+# Usage: .pio/build/native_cli/program 3 --script demos/3player-2hunter-1bounty.demo
+#
+# Device 0 = Hunter (0010)
+# Device 1 = Bounty (0011)
+# Device 2 = Hunter (0012)
+# Devices 3-9 = FDN NPCs (7 games)
+#
+# Strategy: Player 0 (Hunter) plays Ghost Runner, Spike Vector, Firewall Decrypt
+#           Player 2 (Hunter) plays Cipher Path, Exploit Sequencer
+#           Player 1 (Bounty) plays Breach Defense, Signal Echo
+# This tests that multiple players can share the NPC pool without interference.
+
+# ========================================
+# STARTUP: Wait for all 3 players to reach Idle
+# ========================================
+wait 10
+state
+
+# ========================================
+# SPAWN ALL 7 FDN NPCs (devices 3-9)
+# ========================================
+add npc ghost-runner
+add npc spike-vector
+add npc firewall-decrypt
+add npc cipher-path
+add npc exploit-sequencer
+add npc breach-defense
+add npc signal-echo
+
+select 0
+wait 1
+state
+role 0
+role 1
+role 2
+
+# ========================================
+# PLAYER 0 (Hunter) → Ghost Runner (Device 3)
+# ========================================
+
+cable 0 3
+wait 4
+
+# Round 1
+wait 2.5
+b 0
+
+# Round 2
+wait 4
+b 0
+
+# Round 3
+wait 4
+b 0
+
+# Round 4
+wait 4
+b 0
+
+# Win (3s) + FdnComplete (3s) + buffer
+wait 8
+state
+cable -d 0 3
+select 0
+konami
+wait 1
+
+# ========================================
+# PLAYER 0 (Hunter) → Spike Vector (Device 4)
+# 5 waves
+# ========================================
+
+cable 0 4
+wait 4
+
+# Wave 1
+wait 3
+b 0
+
+# Wave 2
+wait 5
+b2 0
+
+# Wave 3
+wait 5
+b 0
+
+# Wave 4
+wait 5
+b2 0
+
+# Wave 5
+wait 5
+b 0
+
+wait 10
+state
+cable -d 0 4
+select 0
+konami
+wait 1
+
+# ========================================
+# PLAYER 0 (Hunter) → Firewall Decrypt (Device 5)
+# ========================================
+
+cable 0 5
+wait 4
+
+# Round 1: scroll and confirm
+wait 2
+b 0
+wait 0.3
+b2 0
+wait 2
+
+# Round 2
+b 0
+wait 0.3
+b2 0
+wait 2
+
+# Round 3
+b 0
+wait 0.3
+b2 0
+
+wait 10
+state
+cable -d 0 5
+select 0
+konami
+wait 2
+
+# ========================================
+# PLAYER 2 (Hunter) → Cipher Path (Device 6)
+# ========================================
+
+cable 2 6
+wait 4
+
+# Round 1: 6 directional guesses
+wait 2
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 2
+
+# Round 2: 6 more guesses
+wait 2
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+wait 0.3
+b 2
+wait 0.3
+b2 2
+
+wait 15
+state
+cable -d 2 6
+select 2
+konami
+wait 2
+
+# ========================================
+# PLAYER 2 (Hunter) → Exploit Sequencer (Device 7)
+# ========================================
+
+cable 2 7
+wait 4
+
+# Seq 1, Exploit 1
+wait 2
+b 2
+
+# Seq 1, Exploit 2
+wait 4
+b 2
+
+# Seq 2, Exploit 1
+wait 4
+b 2
+
+# Seq 2, Exploit 2
+wait 4
+b 2
+
+wait 10
+state
+cable -d 2 7
+select 2
+konami
+wait 2
+
+# ========================================
+# PLAYER 1 (Bounty) → Breach Defense (Device 8)
+# ========================================
+
+cable 1 8
+wait 4
+
+# Threat 1
+wait 3
+b2 1
+
+# Threat 2
+wait 5
+b 1
+
+# Threat 3
+wait 5
+b2 1
+
+# Threat 4
+wait 5
+b 1
+
+# Threat 5
+wait 5
+b2 1
+
+# Threat 6
+wait 5
+b 1
+
+wait 10
+state
+cable -d 1 8
+select 1
+konami
+wait 2
+
+# ========================================
+# PLAYER 1 (Bounty) → Signal Echo (Device 9)
+# ========================================
+
+cable 1 9
+wait 4
+
+# Show sequence
+wait 3
+
+# Sequence 1
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 2
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 3
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+# Sequence 4
+wait 4
+b 1
+wait 0.5
+b2 1
+wait 0.5
+b 1
+wait 0.5
+b2 1
+
+wait 10
+state
+cable -d 1 9
+wait 1
+
+# ========================================
+# FINAL STATUS — All 3 Players
+# ========================================
+select 0
+konami
+role 0
+
+select 1
+konami
+role 1
+
+select 2
+konami
+role 2
+
+state
