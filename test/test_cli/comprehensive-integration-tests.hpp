@@ -1207,7 +1207,7 @@ void breachDefenseEasyWinUnlocksButton(ComprehensiveIntegrationTestSuite* suite)
 
     // Match shield to threat lane
     auto& sess = bd->getSession();
-    sess.shieldLane = sess.threatLane;
+    sess.shieldLane = sess.threats[0].lane;
 
     // Advance until threat arrives
     suite->tickWithTime(20, 20);
@@ -1252,7 +1252,7 @@ void breachDefenseHardWinUnlocksColorProfile(ComprehensiveIntegrationTestSuite* 
 
     // Match shield to threat
     auto& sess = bd->getSession();
-    sess.shieldLane = sess.threatLane;
+    sess.shieldLane = sess.threats[0].lane;
 
     suite->tickWithTime(20, 20);
 
@@ -1296,7 +1296,7 @@ void breachDefenseLossNoRewards(ComprehensiveIntegrationTestSuite* suite) {
 
     // Set shield to WRONG lane
     auto& sess = bd->getSession();
-    if (sess.threatLane == 0) {
+    if (sess.threats[0].lane == 0) {
         sess.shieldLane = 1;
     } else {
         sess.shieldLane = 0;
@@ -1343,7 +1343,7 @@ void breachDefenseShieldMovementDuringThreat(ComprehensiveIntegrationTestSuite* 
     }
 
     // Eventually match shield to threat lane
-    sess.shieldLane = sess.threatLane;
+    sess.shieldLane = sess.threats[0].lane;
 
     suite->tickWithTime(20, 20);
     suite->tickWithTime(10, 100);

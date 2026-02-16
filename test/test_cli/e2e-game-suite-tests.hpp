@@ -735,7 +735,7 @@ void e2eBreachDefenseEasyWin(E2EGameSuiteTestSuite* suite) {
 
     // Should be in Gameplay — match shield to threat lane
     auto& sess = bd->getSession();
-    sess.shieldLane = sess.threatLane;
+    sess.shieldLane = sess.threats[0].lane;
 
     // Advance until threat arrives
     suite->tickWithTime(20, 20);
@@ -782,7 +782,7 @@ void e2eBreachDefenseHardWin(E2EGameSuiteTestSuite* suite) {
 
     // Match shield to threat lane
     auto& sess = bd->getSession();
-    sess.shieldLane = sess.threatLane;
+    sess.shieldLane = sess.threats[0].lane;
 
     // Advance until threat arrives
     suite->tickWithTime(20, 20);
@@ -827,7 +827,7 @@ void e2eBreachDefenseLoss(E2EGameSuiteTestSuite* suite) {
 
     // Set shield to WRONG lane
     auto& sess = bd->getSession();
-    if (sess.threatLane == 0) {
+    if (sess.threats[0].lane == 0) {
         sess.shieldLane = 1;
     } else {
         sess.shieldLane = 0;

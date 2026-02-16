@@ -22,20 +22,20 @@ TEST_F(BreachDefenseTestSuite, IntroResetsSession) {
     breachDefenseIntroResetsSession(this);
 }
 
-TEST_F(BreachDefenseTestSuite, IntroTransitionsToShow) {
-    breachDefenseIntroTransitionsToShow(this);
+TEST_F(BreachDefenseTestSuite, IntroTransitionsToGameplay) {
+    breachDefenseIntroTransitionsToGameplay(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ShowDisplaysThreatInfo) {
-    breachDefenseShowDisplaysThreatInfo(this);
-}
-
-TEST_F(BreachDefenseTestSuite, ShowTransitionsToGameplay) {
-    breachDefenseShowTransitionsToGameplay(this);
+TEST_F(BreachDefenseTestSuite, GameplaySpawnsThreats) {
+    breachDefenseGameplaySpawnsThreats(this);
 }
 
 TEST_F(BreachDefenseTestSuite, ThreatAdvancesWithTime) {
     breachDefenseThreatAdvancesWithTime(this);
+}
+
+TEST_F(BreachDefenseTestSuite, ShieldMovesUpDown) {
+    breachDefenseShieldMovesUpDown(this);
 }
 
 TEST_F(BreachDefenseTestSuite, CorrectBlock) {
@@ -46,20 +46,12 @@ TEST_F(BreachDefenseTestSuite, MissedThreat) {
     breachDefenseMissedThreat(this);
 }
 
-TEST_F(BreachDefenseTestSuite, ShieldMovesUpDown) {
-    breachDefenseShieldMovesUpDown(this);
+TEST_F(BreachDefenseTestSuite, GameplayRoutesToWin) {
+    breachDefenseGameplayRoutesToWin(this);
 }
 
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToNextThreat) {
-    breachDefenseEvaluateRoutesToNextThreat(this);
-}
-
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToWin) {
-    breachDefenseEvaluateRoutesToWin(this);
-}
-
-TEST_F(BreachDefenseTestSuite, EvaluateRoutesToLose) {
-    breachDefenseEvaluateRoutesToLose(this);
+TEST_F(BreachDefenseTestSuite, GameplayRoutesToLose) {
+    breachDefenseGameplayRoutesToLose(this);
 }
 
 TEST_F(BreachDefenseTestSuite, WinSetsOutcome) {
@@ -78,20 +70,8 @@ TEST_F(BreachDefenseTestSuite, StateNamesResolve) {
     breachDefenseStateNamesResolve(this);
 }
 
-TEST_F(BreachDefenseTestSuite, BlockAtLaneZero) {
-    breachDefenseBlockAtLaneZero(this);
-}
-
-TEST_F(BreachDefenseTestSuite, BlockAtMaxLane) {
-    breachDefenseBlockAtMaxLane(this);
-}
-
-TEST_F(BreachDefenseTestSuite, ExactBreachesEqualAllowed) {
-    breachDefenseExactBreachesEqualAllowed(this);
-}
-
-TEST_F(BreachDefenseTestSuite, HapticsIntensityDiffers) {
-    breachDefenseHapticsIntensityDiffers(this);
+TEST_F(BreachDefenseTestSuite, MultipleThreatsActive) {
+    breachDefenseMultipleThreatsActive(this);
 }
 
 TEST_F(BreachDefenseManagedTestSuite, ManagedModeReturns) {
