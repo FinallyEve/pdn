@@ -26,6 +26,9 @@
 #include "timer-tests.hpp"
 #include "difficulty-scaler-tests.hpp"
 
+// Edge case tests
+#include "edge-case-tests.hpp"
+
 #if defined(ARDUINO)
 #include <Arduino.h>
 
