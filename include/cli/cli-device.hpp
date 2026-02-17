@@ -39,7 +39,7 @@
 #include "game/exploit-sequencer/exploit-sequencer-states.hpp"
 #include "game/breach-defense/breach-defense.hpp"
 #include "game/breach-defense/breach-defense-states.hpp"
-#include "game/konami-metagame/konami-metagame.hpp"
+#include "game/konami-metagame.hpp"
 #include "device/device-types.hpp"
 #include "wireless/quickdraw-wireless-manager.hpp"
 #include "wireless/peer-comms-types.hpp"
