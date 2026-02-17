@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "device/device.hpp"
 #include "game/player.hpp"
 #include "game/match.hpp"
@@ -24,20 +25,20 @@ public:
 
     void populateStateMap() override;
     static Image getImageForAllegiance(Allegiance allegiance, ImageType whichImage);
-    ProgressManager* getProgressManager() const { return progressManager; }
+    ProgressManager* getProgressManager() const { return progressManager.get(); }
     DifficultyScaler* getDifficultyScaler() { return &difficultyScaler; }
 
 private:
     std::vector<Match> matches;
     int numMatches = 0;
-    MatchManager* matchManager;
+    std::unique_ptr<MatchManager> matchManager;
     Player *player;
     WirelessManager* wirelessManager;
     StorageInterface* storageManager;
     PeerCommsInterface* peerComms;
     QuickdrawWirelessManager* quickdrawWirelessManager;
     RemoteDebugManager* remoteDebugManager;
-    ProgressManager* progressManager = nullptr;
-    FdnResultManager* fdnResultManager = nullptr;
+    std::unique_ptr<ProgressManager> progressManager;
+    std::unique_ptr<FdnResultManager> fdnResultManager;
     DifficultyScaler difficultyScaler;
 };

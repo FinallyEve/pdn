@@ -3,10 +3,10 @@
 //
 #pragma once
 
+#include <memory>
+#include <string>
 #include "device.hpp"
 #include "device/light-manager.hpp"
-
-#include <string>
 
 const std::string DISPLAY_DRIVER_NAME = "display";
 const std::string PRIMARY_BUTTON_DRIVER_NAME = "primary_button";
@@ -61,7 +61,7 @@ private:
     Button* primary;
     Button* secondary;
     LightStrip* pdnLights;
-    LightManager* lightManager;
+    std::unique_ptr<LightManager> lightManager;
 
     HWSerialWrapper* serialOut;
     HWSerialWrapper* serialIn;
@@ -71,7 +71,7 @@ private:
     PlatformClock* platformClock;
     LoggerInterface* logger;
     StorageInterface* storage;
-    WirelessManager* wirelessManager;
+    std::unique_ptr<WirelessManager> wirelessManager;
 
     std::string deviceId;
 };

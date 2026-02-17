@@ -8,6 +8,7 @@
 */
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <string>
 #include "device/drivers/button.hpp"
@@ -25,7 +26,7 @@ struct ActiveDuelState {
     unsigned long duelLocalStartTime = 0;
     unsigned long BUTTON_MASHER_PENALTY_MS = 75;
     int buttonMasherCount = 0;
-    Match* match = nullptr;
+    std::unique_ptr<Match> match;
 };
 
 class MatchManager {
@@ -78,7 +79,7 @@ public:
      * Gets the current active match if any
      * @return Pointer to the active match, nullptr if none
      */
-    Match* getCurrentMatch() const { return activeDuelState.match; }
+    Match* getCurrentMatch() const { return activeDuelState.match.get(); }
 
     /**
      * Converts all stored matches to a JSON array string
