@@ -27,8 +27,8 @@ PDN::PDN(DriverConfig& driverConfig) : Device(driverConfig) {
     logger = static_cast<LoggerDriverInterface*>(driverConfig[LOGGER_DRIVER_NAME]);
     storage = static_cast<StorageDriverInterface*>(driverConfig[STORAGE_DRIVER_NAME]);
 
-    lightManager = new LightManager(*lights);
-    wirelessManager = new WirelessManager(peerComms, httpClient);
+    lightManager = std::make_unique<LightManager>(*lights);
+    wirelessManager = std::make_unique<WirelessManager>(peerComms, httpClient);
 }
 
 int PDN::begin() {
@@ -71,7 +71,7 @@ Button* PDN::getSecondaryButton() {
 }
 
 LightManager* PDN::getLightManager() {
-    return lightManager;
+    return lightManager.get();
 }
 
 HttpClientInterface* PDN::getHttpClient() {
@@ -87,7 +87,7 @@ StorageInterface* PDN::getStorage() {
 }
 
 WirelessManager* PDN::getWirelessManager() {
-    return wirelessManager;
+    return wirelessManager.get();
 }
 
 void PDN::setDeviceId(const std::string& id) {

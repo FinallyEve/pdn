@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <memory>
 #include "utils/simple-timer.hpp"
 #include "drivers/light-interface.hpp"
 
@@ -85,8 +86,8 @@ private:
     
     // Member variables
     LightStrip& pdnLights;
-    IAnimation* currentAnimation;
-    
+    std::unique_ptr<IAnimation> currentAnimation;
+
     // Member arrays for extracted lights
     LEDState::SingleLEDState gripLightArray[6];
     LEDState::SingleLEDState displayLightArray[13];

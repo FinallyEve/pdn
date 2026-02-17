@@ -5,12 +5,12 @@ Quickdraw::Quickdraw(Player* player, Device* PDN, QuickdrawWirelessManager* quic
     this->quickdrawWirelessManager = quickdrawWirelessManager;
     this->remoteDebugManager = remoteDebugManager;
     this->wirelessManager = PDN->getWirelessManager();
-    this->matchManager = new MatchManager();
+    this->matchManager = std::make_unique<MatchManager>();
     this->storageManager = PDN->getStorage();
     this->peerComms = PDN->getPeerComms();
-    this->progressManager = new ProgressManager();
+    this->progressManager = std::make_unique<ProgressManager>();
     this->progressManager->initialize(player, storageManager);
-    this->fdnResultManager = new FdnResultManager();
+    this->fdnResultManager = std::make_unique<FdnResultManager>();
     this->fdnResultManager->initialize(storageManager);
     PDN->setActiveComms(player->isHunter() ? SerialIdentifier::OUTPUT_JACK : SerialIdentifier::INPUT_JACK);
 }
@@ -18,58 +18,53 @@ Quickdraw::Quickdraw(Player* player, Device* PDN, QuickdrawWirelessManager* quic
 Quickdraw::~Quickdraw() {
     player = nullptr;
     quickdrawWirelessManager = nullptr;
-    delete matchManager;
-    matchManager = nullptr;
+    // matchManager, progressManager, and fdnResultManager are automatically cleaned up by unique_ptr
     storageManager = nullptr;
     peerComms = nullptr;
-    delete progressManager;
-    progressManager = nullptr;
-    delete fdnResultManager;
-    fdnResultManager = nullptr;
     matches.clear();
 }
 
 void Quickdraw::populateStateMap() {
     matchManager->initialize(player, storageManager, peerComms, quickdrawWirelessManager);
 
-    PlayerRegistration* playerRegistration = new PlayerRegistration(player, matchManager);
-    FetchUserDataState* fetchUserData = new FetchUserDataState(player, wirelessManager, remoteDebugManager, progressManager);
+    PlayerRegistration* playerRegistration = new PlayerRegistration(player, matchManager.get());
+    FetchUserDataState* fetchUserData = new FetchUserDataState(player, wirelessManager, remoteDebugManager, progressManager.get());
     WelcomeMessage* welcomeMessage = new WelcomeMessage(player);
     ConfirmOfflineState* confirmOffline = new ConfirmOfflineState(player);
     ChooseRoleState* chooseRole = new ChooseRoleState(player);
 
     AwakenSequence* awakenSequence = new AwakenSequence(player);
-    Idle* idle = new Idle(player, matchManager, quickdrawWirelessManager, progressManager);
+    Idle* idle = new Idle(player, matchManager.get(), quickdrawWirelessManager, progressManager.get());
     
     HandshakeInitiateState* handshakeInitiate = new HandshakeInitiateState(player);
-    BountySendConnectionConfirmedState* bountySendCC = new BountySendConnectionConfirmedState(player, matchManager, quickdrawWirelessManager);
-    HunterSendIdState* hunterSendId = new HunterSendIdState(player, matchManager, quickdrawWirelessManager);
+    BountySendConnectionConfirmedState* bountySendCC = new BountySendConnectionConfirmedState(player, matchManager.get(), quickdrawWirelessManager);
+    HunterSendIdState* hunterSendId = new HunterSendIdState(player, matchManager.get(), quickdrawWirelessManager);
 
     ConnectionSuccessful* connectionSuccessful = new ConnectionSuccessful(player);
-    
-    DuelCountdown* duelCountdown = new DuelCountdown(player, matchManager);
-    Duel* duel = new Duel(player, matchManager, quickdrawWirelessManager);
-    DuelPushed* duelPushed = new DuelPushed(player, matchManager);
-    DuelReceivedResult* duelReceivedResult = new DuelReceivedResult(player, matchManager, quickdrawWirelessManager);
-    DuelResult* duelResult = new DuelResult(player, matchManager, quickdrawWirelessManager);
+
+    DuelCountdown* duelCountdown = new DuelCountdown(player, matchManager.get());
+    Duel* duel = new Duel(player, matchManager.get(), quickdrawWirelessManager);
+    DuelPushed* duelPushed = new DuelPushed(player, matchManager.get());
+    DuelReceivedResult* duelReceivedResult = new DuelReceivedResult(player, matchManager.get(), quickdrawWirelessManager);
+    DuelResult* duelResult = new DuelResult(player, matchManager.get(), quickdrawWirelessManager);
     
     Win* win = new Win(player);
     Lose* lose = new Lose(player);
-    
+
     Sleep* sleep = new Sleep(player);
-    UploadMatchesState* uploadMatches = new UploadMatchesState(player, wirelessManager, matchManager, fdnResultManager);
+    UploadMatchesState* uploadMatches = new UploadMatchesState(player, wirelessManager, matchManager.get(), fdnResultManager.get());
 
     FdnDetected* fdnDetected = new FdnDetected(player, &difficultyScaler);
     FdnReencounter* fdnReencounter = new FdnReencounter(player, &difficultyScaler);
-    FdnComplete* fdnComplete = new FdnComplete(player, progressManager, fdnResultManager, &difficultyScaler);
-    ColorProfilePrompt* colorProfilePrompt = new ColorProfilePrompt(player, progressManager);
-    ColorProfilePicker* colorProfilePicker = new ColorProfilePicker(player, progressManager);
-    BoonAwarded* boonAwarded = new BoonAwarded(player, progressManager);
+    FdnComplete* fdnComplete = new FdnComplete(player, progressManager.get(), fdnResultManager.get(), &difficultyScaler);
+    ColorProfilePrompt* colorProfilePrompt = new ColorProfilePrompt(player, progressManager.get());
+    ColorProfilePicker* colorProfilePicker = new ColorProfilePicker(player, progressManager.get());
+    BoonAwarded* boonAwarded = new BoonAwarded(player, progressManager.get());
     KonamiPuzzle* konamiPuzzle = new KonamiPuzzle(player);
     ConnectionLost* connectionLost = new ConnectionLost(player);
 
     KonamiCodeEntry* konamiCodeEntry = new KonamiCodeEntry(player);
-    KonamiCodeAccepted* konamiCodeAccepted = new KonamiCodeAccepted(player, progressManager);
+    KonamiCodeAccepted* konamiCodeAccepted = new KonamiCodeAccepted(player, progressManager.get());
     KonamiCodeRejected* konamiCodeRejected = new KonamiCodeRejected(player);
     GameOverReturnIdle* gameOverReturnIdle = new GameOverReturnIdle(player);
 

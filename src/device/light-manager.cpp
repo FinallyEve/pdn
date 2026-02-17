@@ -17,9 +17,7 @@ LightManager::LightManager(LightStrip& pdnLights)
 }
 
 LightManager::~LightManager() {
-    if (currentAnimation) {
-        delete currentAnimation;
-    }
+    // currentAnimation is automatically cleaned up by unique_ptr
 }
 
 void LightManager::loop() {
@@ -33,40 +31,37 @@ void LightManager::loop() {
 }
 
 void LightManager::startAnimation(AnimationConfig config) {
-    // Clean up any existing animation
-    if (currentAnimation) {
-        delete currentAnimation;
-        currentAnimation = nullptr;
-    }
-    
+    // Clean up any existing animation (unique_ptr will automatically delete)
+    currentAnimation.reset();
+
     // Create the appropriate animation based on type
     switch (config.type) {
         case AnimationType::IDLE:
-            currentAnimation = new IdleAnimation();
+            currentAnimation = std::make_unique<IdleAnimation>();
             break;
         case AnimationType::VERTICAL_CHASE:
-            currentAnimation = new VerticalChaseAnimation();
+            currentAnimation = std::make_unique<VerticalChaseAnimation>();
             break;
         case AnimationType::DEVICE_CONNECTED:
             // TODO: Implement other animation types
             break;
         case AnimationType::COUNTDOWN:
-            currentAnimation = new CountdownAnimation();
+            currentAnimation = std::make_unique<CountdownAnimation>();
             break;
         case AnimationType::LOSE:
-            currentAnimation = new LoseAnimation();
+            currentAnimation = std::make_unique<LoseAnimation>();
             break;
         case AnimationType::HUNTER_WIN:
-            currentAnimation = new HunterWinAnimation();
+            currentAnimation = std::make_unique<HunterWinAnimation>();
             break;
         case AnimationType::BOUNTY_WIN:
-            currentAnimation = new BountyWinAnimation();
+            currentAnimation = std::make_unique<BountyWinAnimation>();
             break;
         case AnimationType::TRANSMIT_BREATH:
-            currentAnimation = new TransmitBreathAnimation();
+            currentAnimation = std::make_unique<TransmitBreathAnimation>();
             break;
     }
-    
+
     // Initialize the animation if created
     if (currentAnimation) {
         // Initialize the animation with the config (which now includes initialState)
@@ -77,8 +72,7 @@ void LightManager::startAnimation(AnimationConfig config) {
 void LightManager::stopAnimation() {
     if (currentAnimation) {
         currentAnimation->stop();
-        delete currentAnimation;
-        currentAnimation = nullptr;
+        currentAnimation.reset();
     }
     clear();
 }
