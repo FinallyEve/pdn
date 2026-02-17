@@ -216,9 +216,9 @@ inline const char* getStateName(int stateId, DeviceType deviceType = DeviceType:
  * Structure to hold all components for a single simulated PDN device.
  */
 struct DeviceInstance {
-    int deviceIndex;
+    int deviceIndex = 0;
     std::string deviceId;  // e.g., "0010", "0011", etc.
-    bool isHunter;
+    bool isHunter = false;
     DeviceType deviceType = DeviceType::PLAYER;
     GameType gameType = GameType::QUICKDRAW;
 

@@ -181,7 +181,6 @@ inline void printHeader() {
 template<typename... Args>
 std::string format(const char* fmt, Args... args) {
     char buffer[256];
-    // cppcheck-suppress wrongPrintfScanfArgNum
     snprintf(buffer, sizeof(buffer), fmt, args...);
     return std::string(buffer);
 }
