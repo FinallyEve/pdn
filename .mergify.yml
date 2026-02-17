@@ -1,0 +1,13 @@
+queue_rules:
+  - name: default
+    batch_size: 5
+    batch_max_wait_time: 2 min
+    merge_method: squash
+    queue_conditions:
+      - base = main
+    merge_conditions:
+      - check-success = test-native
+      - check-success = test-native-cli
+      - check-success = test
+      - check-success = build-esp32
+      - check-success = build-cli
