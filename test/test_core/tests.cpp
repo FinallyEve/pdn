@@ -20,6 +20,8 @@
 #include "lifecycle-tests.hpp"
 #include "contract-tests.hpp"
 #include "wireless-manager-tests.hpp"
+#include "light-manager-tests.hpp"
+#include "device-lifecycle-tests.hpp"
 
 // Core utility tests
 #include "uuid-tests.hpp"
@@ -1724,6 +1726,154 @@ TEST_F(WirelessManagerTestSuite, clearPacketsRemovesAllTrackedCommands) {
 
 TEST_F(WirelessManagerTestSuite, clearPacketRemovesSpecificCommand) {
     clearPacketRemovesSpecificCommand(wirelessManager);
+}
+
+// ============================================
+// LIGHT MANAGER TESTS
+// ============================================
+
+TEST_F(LightManagerTestSuite, initializesWithCleanState) {
+    lightManagerInitializesWithCleanState(this);
+}
+
+TEST_F(LightManagerTestSuite, startsIdleAnimation) {
+    lightManagerStartsIdleAnimation(this);
+}
+
+TEST_F(LightManagerTestSuite, stopsAnimationAndClearsLights) {
+    lightManagerStopsAnimationAndClearsLights(this);
+}
+
+TEST_F(LightManagerTestSuite, pausesAndResumesAnimation) {
+    lightManagerPausesAndResumesAnimation(this);
+}
+
+TEST_F(LightManagerTestSuite, switchesAnimationsCleanly) {
+    lightManagerSwitchesAnimationsCleanly(this);
+}
+
+TEST_F(LightManagerTestSuite, setsGlobalBrightness) {
+    lightManagerSetsGlobalBrightness(this);
+}
+
+TEST_F(LightManagerTestSuite, handlesBrightnessEdgeCases) {
+    lightManagerHandlesBrightnessEdgeCases(this);
+}
+
+TEST_F(LightManagerTestSuite, clearResetsAllLights) {
+    lightManagerClearResetsAllLights(this);
+}
+
+TEST_F(LightManagerTestSuite, loopDoesNotUpdateWhenPaused) {
+    lightManagerLoopDoesNotUpdateWhenPaused(this);
+}
+
+TEST_F(LightManagerTestSuite, multipleAnimationTypesWork) {
+    lightManagerMultipleAnimationTypesWork(this);
+}
+
+TEST_F(LightManagerTestSuite, stateQueryConsistency) {
+    lightManagerStateQueryConsistency(this);
+}
+
+TEST_F(LightManagerTestSuite, destructorCleansUpAnimation) {
+    lightManagerDestructorCleansUpAnimation(this);
+}
+
+TEST_F(LightManagerTestSuite, handlesRapidAnimationSwitching) {
+    lightManagerHandlesRapidAnimationSwitching(this);
+}
+
+TEST_F(LightManagerTestSuite, stopWithoutStartDoesNotCrash) {
+    lightManagerStopWithoutStartDoesNotCrash(this);
+}
+
+TEST_F(LightManagerTestSuite, pauseWithoutStartDoesNotCrash) {
+    lightManagerPauseWithoutStartDoesNotCrash(this);
+}
+
+// ============================================
+// DEVICE LIFECYCLE TESTS
+// ============================================
+
+TEST_F(DeviceLifecycleTestSuite, constructsSuccessfully) {
+    deviceConstructsSuccessfully(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, destructsWithoutCrash) {
+    deviceDestructsWithoutCrash(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, initializationSequence) {
+    deviceInitializationSequence(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, beginCanBeCalledMultipleTimes) {
+    deviceBeginCanBeCalledMultipleTimes(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, loopExecutesWithoutApps) {
+    deviceLoopExecutesWithoutApps(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, loadAppConfigMountsApp) {
+    deviceLoadAppConfigMountsApp(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, shutdownAppsBeforeDestruction) {
+    deviceShutdownAppsBeforeDestruction(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, multipleInstantiationsWork) {
+    deviceMultipleInstantiationsWork(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, reconstructionAfterDestruction) {
+    deviceReconstructionAfterDestruction(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, driversAccessibleAfterInit) {
+    deviceDriversAccessibleAfterInit(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, lifecycleWithButtonInteraction) {
+    deviceLifecycleWithButtonInteraction(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, lifecycleWithTimeAdvancement) {
+    deviceLifecycleWithTimeAdvancement(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, destructionAfterLoops) {
+    deviceDestructionAfterLoops(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, handlesSerialInteraction) {
+    deviceHandlesSerialInteraction(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, componentInteractionsDuringLifecycle) {
+    deviceComponentInteractionsDuringLifecycle(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, clockResetOnDestruction) {
+    deviceClockResetOnDestruction(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, multipleLoopsWithoutCrash) {
+    deviceMultipleLoopsWithoutCrash(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, getDeviceIdWorks) {
+    deviceGetDeviceIdWorks(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, withOptionalComponents) {
+    deviceWithOptionalComponents(this);
+}
+
+TEST_F(DeviceLifecycleTestSuite, destructorOrderingPreventsSegfault) {
+    deviceDestructorOrderingPreventsSegfault(this);
 }
 
 // ============================================
