@@ -506,9 +506,10 @@ void difficultyScalerAfterManyGames(EdgeCaseBoundaryTestSuite* suite) {
     ASSERT_GE(difficulty, 0.0f);
     ASSERT_LE(difficulty, 1.0f);
 
-    // With balanced win/loss, should be around mid-range
-    ASSERT_GE(difficulty, 0.2f);
-    ASSERT_LE(difficulty, 0.8f);
+    // With alternating win/loss, the SCALE_DOWN_STEP (0.08) is larger than
+    // SCALE_UP_STEP (0.05), so difficulty trends downward toward 0.
+    // Net effect per pair: +0.05 - 0.08 = -0.03, so after 50 pairs difficulty ≈ 0.0
+    ASSERT_FLOAT_EQ(difficulty, 0.0f);
 }
 
 /*
