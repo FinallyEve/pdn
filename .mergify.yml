@@ -1,0 +1,38 @@
+# Mergify Configuration — Merge Queue for PDN
+# Replaces batch merging to prevent "passes individually, fails together" breakage
+# See: #343, #282
+
+queue_rules:
+  - name: default
+    merge_method: squash
+    merge_conditions:
+      - check-success = test-native
+      - check-success = test-native-cli
+      - check-success = test
+      - check-success = build-esp32
+      - check-success = build-cli
+    batch_size: 5
+    batch_max_wait_time: 5 min
+    checks_timeout: 30 min
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+
+      {{ body | get_section("## Summary", "") }}
+
+pull_request_rules:
+  - name: queue PRs with ready-to-merge label
+    conditions:
+      - base = main
+      - label = ready-to-merge
+      - -draft
+    actions:
+      queue:
+        name: default
+
+  - name: remove from queue when label removed
+    conditions:
+      - base = main
+      - label != ready-to-merge
+      - queue-position >= 0
+    actions:
+      dequeue:
