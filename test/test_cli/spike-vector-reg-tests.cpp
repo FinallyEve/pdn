@@ -38,15 +38,15 @@ TEST_F(SpikeVectorTestSuite, FormationAdvances) {
     spikeVectorFormationAdvances(this);
 }
 
-TEST_F(SpikeVectorTestSuite, DISABLED_CorrectDodge) {
+TEST_F(SpikeVectorTestSuite, CorrectDodge) {
     spikeVectorCorrectDodge(this);
 }
 
-TEST_F(SpikeVectorTestSuite, DISABLED_MissedDodge) {
+TEST_F(SpikeVectorTestSuite, MissedDodge) {
     spikeVectorMissedDodge(this);
 }
 
-TEST_F(SpikeVectorTestSuite, DISABLED_FormationCompleteTransition) {
+TEST_F(SpikeVectorTestSuite, FormationCompleteTransition) {
     spikeVectorFormationCompleteTransition(this);
 }
 
@@ -78,7 +78,7 @@ TEST_F(SpikeVectorTestSuite, StateNamesResolve) {
     spikeVectorStateNamesResolve(this);
 }
 
-TEST_F(SpikeVectorManagedTestSuite, DISABLED_ManagedModeReturns) {
+TEST_F(SpikeVectorManagedTestSuite, ManagedModeReturns) {
     spikeVectorManagedModeReturns(this);
 }
 

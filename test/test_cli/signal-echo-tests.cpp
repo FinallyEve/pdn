@@ -26,7 +26,7 @@ TEST_F(SignalEchoTestSuite, ShowSequenceDisplaysSignals) {
     echoShowSequenceDisplaysSignals(this);
 }
 
-TEST_F(SignalEchoTestSuite, DISABLED_ShowTransitionsToInput) {
+TEST_F(SignalEchoTestSuite, ShowTransitionsToInput) {
     echoShowTransitionsToInput(this);
 }
 
@@ -50,11 +50,11 @@ TEST_F(SignalEchoTestSuite, AllRoundsCompletedWin) {
     echoAllRoundsCompletedWin(this);
 }
 
-TEST_F(SignalEchoTestSuite, DISABLED_CumulativeModeAppends) {
+TEST_F(SignalEchoTestSuite, CumulativeModeAppends) {
     echoCumulativeModeAppends(this);
 }
 
-TEST_F(SignalEchoTestSuite, DISABLED_FreshModeNewSequence) {
+TEST_F(SignalEchoTestSuite, FreshModeNewSequence) {
     echoFreshModeNewSequence(this);
 }
 
@@ -84,40 +84,40 @@ TEST_F(SignalEchoTestSuite, StandaloneRestartAfterWin) {
 
 // DISABLED: Assertion failure — sequence length assertion fails after
 // Signal Echo redesign (Cypher Recall, Wave 18). See #327.
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_EasySequenceLength) {
+TEST_F(SignalEchoDifficultyTestSuite, EasySequenceLength) {
     echoDiffEasySequenceLength(this);
 }
 
 // DISABLED: SIGSEGV — config params access crashes after Signal Echo
 // redesign (Cypher Recall, Wave 18). See #327.
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_EasyConfigParams) {
+TEST_F(SignalEchoDifficultyTestSuite, EasyConfigParams) {
     echoDiffEasyConfigParams(this);
 }
 
 // DISABLED: SIGSEGV — all difficulty tests crash after Signal Echo redesign
 // (Cypher Recall, Wave 18). Test fixture creates minigame with old config
 // assumptions. See #327.
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_HardSequenceLength) {
+TEST_F(SignalEchoDifficultyTestSuite, HardSequenceLength) {
     echoDiffHardSequenceLength(this);
 }
 
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_WrongSequenceLoses) {
+TEST_F(SignalEchoDifficultyTestSuite, WrongSequenceLoses) {
     echoDiffWrongSequenceLoses(this);
 }
 
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_EasyWinOutcome) {
+TEST_F(SignalEchoDifficultyTestSuite, EasyWinOutcome) {
     echoDiffEasyWinOutcome(this);
 }
 
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_HardWinOutcome) {
+TEST_F(SignalEchoDifficultyTestSuite, HardWinOutcome) {
     echoDiffHardWinOutcome(this);
 }
 
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_LifeIndicator) {
+TEST_F(SignalEchoDifficultyTestSuite, LifeIndicator) {
     echoDiffLifeIndicator(this);
 }
 
-TEST_F(SignalEchoDifficultyTestSuite, DISABLED_WrongInputAdvances) {
+TEST_F(SignalEchoDifficultyTestSuite, WrongInputAdvances) {
     echoDiffWrongInputAdvances(this);
 }
 
@@ -139,7 +139,7 @@ TEST_F(SignalEchoTestSuite, ButtonPressDuringShowIgnored) {
 
 // DISABLED: Assertion failure — cumulative mode behavior changed after
 // Signal Echo redesign (Cypher Recall, Wave 18). See #327.
-TEST_F(SignalEchoTestSuite, DISABLED_CumulativeModeMaxLength) {
+TEST_F(SignalEchoTestSuite, CumulativeModeMaxLength) {
     echoCumulativeModeMaxLength(this);
 }
 
