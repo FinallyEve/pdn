@@ -82,3 +82,6 @@ launch-agent-*.sh
 
 # Claude sessions
 .cmux/
+
+# Fleet state (runtime data)
+.fleet-state.json
