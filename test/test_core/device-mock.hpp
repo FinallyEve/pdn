@@ -211,6 +211,9 @@ public:
         // may call virtual methods. During ~Device(), the vtable reverts to
         // Device's pure virtual definitions, causing SIGSEGV.
         shutdownApps();
+        // Delete wirelessManager before its dependencies (peerComms, httpClient)
+        delete wirelessManager;
+        delete lightManager;
         delete mockDisplay;
         delete mockPrimaryButton;
         delete mockSecondaryButton;
@@ -218,8 +221,6 @@ public:
         delete mockHttpClient;
         delete mockPeerComms;
         delete mockStorage;
-        delete lightManager;
-        delete wirelessManager;
     }
 
     // Device Methods
